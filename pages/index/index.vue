@@ -165,49 +165,24 @@
 				<view class="tab-content private-content" v-if="activeTab === 'private'">
 					<view class="kitchen-category-strip three-level-category-strip">
 						<view class="category-strip-marker"></view>
-						<view 
-							class="level-one-tab" 
-							:class="{ active: activeKitchenLevelOneId === item.id }" 
-							v-for="item in kitchenCategoryTree" 
-							:key="item.id"
-							@tap="selectKitchenLevelOne(item)"
-						>
-							<image class="level-one-img" :src="item.image" mode="aspectFill"></image>
-							<text class="level-one-text">{{ item.name }}</text>
-						</view>
+						<scroll-view class="level-one-text-scroll" scroll-x="true" show-scrollbar="false">
+							<view
+								class="kitchen-category-label"
+								:class="{ active: activeKitchenLevelOneId === item.id }"
+								v-for="item in kitchenCategoryTree"
+								:key="item.id"
+								@tap="selectKitchenLevelOne(item)"
+							>
+								<text>{{ item.name }}</text>
+							</view>
+						</scroll-view>
 						<view class="refresh-action" @tap="onRefreshTap">
 							<image class="svg-refresh" :class="{ rotating: isRefreshing }" src="/static/refresh.svg" mode="aspectFit"></image>
 						</view>
 					</view>
 
-					<view class="kitchen-third-row">
-						<text class="level-two-title">{{ activeKitchenLevelTwo ? activeKitchenLevelTwo.name : '分类' }}</text>
-						<scroll-view class="level-three-scroll" scroll-x="true" show-scrollbar="false">
-							<view 
-								class="level-three-chip" 
-								:class="{ active: activeKitchenDishId === dish.id, selected: isDishSelected(dish.id) }" 
-								v-for="dish in activeKitchenDishes" 
-								:key="dish.id"
-								@tap="toggleSelectDish(dish.id)"
-							>
-								<text>{{ dish.name }}</text>
-								<view class="chip-select-btn" @tap.stop="toggleSelectDish(dish.id)">
-									<view v-if="isDishSelected(dish.id)" class="select-checkmark"></view>
-									<text v-else>+</text>
-								</view>
-							</view>
-						</scroll-view>
-						<view class="third-row-more">
-							<text>⌄</text>
-						</view>
-					</view>
-
 					<view class="kitchen-category-body">
 						<view class="kitchen-side-pane">
-							<view class="category-manage" :class="{ 'highlight-tutorial': tutorialStep === 2 }" @tap="onCategoryManageTap">
-								<image class="svg-gear" src="/static/gear.svg" mode="aspectFit"></image>
-								<text class="category-text">分类管理</text>
-							</view>
 							<view 
 								class="side-category" 
 								:class="{ active: activeKitchenLevelTwoId === item.id }" 
@@ -217,14 +192,14 @@
 							>
 								<text>{{ item.name }}</text>
 							</view>
+							<view class="category-manage" :class="{ 'highlight-tutorial': tutorialStep === 2 }" @tap="onCategoryManageTap">
+								<image class="svg-gear" src="/static/gear.svg" mode="aspectFit"></image>
+								<text class="category-text">分类管理</text>
+							</view>
 						</view>
 						<view class="kitchen-main-pane">
-							<view class="category-breadcrumb" v-if="activeKitchenLevelOne && activeKitchenLevelTwo && activeKitchenDish">
-								<text>{{ activeKitchenLevelOne.name }}</text>
-								<text class="breadcrumb-separator">›</text>
+							<view class="category-main-head" v-if="activeKitchenLevelTwo">
 								<text>{{ activeKitchenLevelTwo.name }}</text>
-								<text class="breadcrumb-separator">›</text>
-								<text class="breadcrumb-current">{{ activeKitchenDish.name }}</text>
 							</view>
 							<view class="kitchen-dish-list" v-if="activeKitchenDishes.length > 0">
 								<view 
@@ -237,7 +212,7 @@
 									<image class="kitchen-dish-img" :src="dish.image" mode="aspectFill"></image>
 									<view class="kitchen-dish-info">
 										<text class="kitchen-dish-name">{{ dish.name }}</text>
-										<text class="kitchen-dish-desc">{{ dish.desc }}</text>
+										<text class="kitchen-dish-sales">销量 {{ dish.sales || 0 }}</text>
 									</view>
 									<view class="dish-action-cell">
 										<view class="dish-select-btn" @tap.stop="toggleSelectDish(dish.id)">
@@ -840,7 +815,8 @@
 						id: d.id,
 						name: d.dishName,
 						desc: d.story || (d.categoryName ? '· ' + d.categoryName : ''),
-						image: d.cover || '/static/onion_chicken.png'
+						image: d.cover || '/static/onion_chicken.png',
+						sales: d.sales || 0
 					});
 				});
 				const collectDishes = (node) => {
@@ -5822,192 +5798,69 @@
 		font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
 	}
 
-	/* Three-level kitchen categories: 家常菜 > 猪肉类 > 炖猪脚 */
+	/* Kitchen order layout: left category rail + right dish list */
 	.tab-kitchen .three-level-category-strip {
-		height: 136rpx;
-		padding: 0 104rpx 0 28rpx;
-		gap: 38rpx;
+		height: 86rpx;
+		padding: 0 96rpx 0 34rpx;
+		gap: 0;
 		justify-content: flex-start;
-		border-bottom: 0;
+		border-top: 1rpx solid #f3f5f4;
+		border-bottom: 1rpx solid #eef0ef;
 		box-sizing: border-box;
 	}
 
 	.tab-kitchen .three-level-category-strip .category-strip-marker {
-		top: 52rpx;
+		top: 28rpx;
 	}
 
-	.tab-kitchen .level-one-tab {
-		width: 118rpx;
-		height: 112rpx;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 6rpx;
-		position: relative;
-		flex-shrink: 0;
-	}
-
-	.tab-kitchen .level-one-img {
-		width: 66rpx;
-		height: 66rpx;
-		border-radius: 50%;
-		background: #f2f5f4;
-		box-shadow: 0 8rpx 18rpx rgba(28, 45, 40, 0.08);
-	}
-
-	.tab-kitchen .level-one-tab.active .level-one-img {
-		border: 4rpx solid #16c34a;
-		box-shadow: 0 8rpx 22rpx rgba(25, 195, 89, 0.16);
-		box-sizing: border-box;
-	}
-
-	.tab-kitchen .level-one-text {
-		font-size: 24rpx;
-		line-height: 1;
-		font-weight: 800;
-		color: #252b29;
+	.tab-kitchen .level-one-text-scroll {
+		width: 100%;
+		height: 86rpx;
 		white-space: nowrap;
-	}
-
-	.tab-kitchen .level-one-tab.active .level-one-text {
-		min-width: 100rpx;
-		height: 34rpx;
-		line-height: 34rpx;
-		border-radius: 10rpx;
-		text-align: center;
-		background: #16c34a;
-		color: #fbfefd;
-	}
-
-	.tab-kitchen .three-level-category-strip .refresh-action {
-		top: 44rpx;
-		right: 35rpx;
-	}
-
-	.tab-kitchen .kitchen-third-row {
-		width: 750rpx;
-		height: 82rpx;
-		display: flex;
-		align-items: center;
-		gap: 20rpx;
-		padding: 0 84rpx 0 28rpx;
-		background: #fbfefd;
-		border-top: 1rpx solid #f0f1f1;
-		border-bottom: 1rpx solid #eef0ef;
+		overflow: hidden;
 		box-sizing: border-box;
-		position: relative;
 	}
 
-	.tab-kitchen .kitchen-third-row::before {
-		content: "";
-		position: absolute;
-		left: 0;
-		top: 24rpx;
-		width: 6rpx;
-		height: 34rpx;
-		border-radius: 0 6rpx 6rpx 0;
-		background: #35cda4;
-	}
-
-	.tab-kitchen .level-two-title {
-		min-width: 132rpx;
-		font-size: 28rpx;
+	.tab-kitchen .kitchen-category-label {
+		height: 86rpx;
+		margin-right: 40rpx;
+		display: inline-flex;
+		align-items: center;
+		vertical-align: top;
+		font-size: 30rpx;
 		line-height: 1;
 		font-weight: 900;
 		color: #202725;
 		white-space: nowrap;
 	}
 
-	.tab-kitchen .level-three-chip {
-		height: 46rpx;
-		padding: 0 8rpx 0 22rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 10rpx;
-		border-radius: 12rpx;
-		background: #f4f6f5;
-		color: #343b38;
-		font-size: 26rpx;
-		font-weight: 800;
-		white-space: nowrap;
+	.tab-kitchen .kitchen-category-label.active {
+		color: #35cda4;
 	}
 
-	.tab-kitchen .level-three-chip.active {
-		background: #e6faf1;
-		color: #16b84e;
-	}
-
-	.tab-kitchen .level-three-chip.selected {
-		background: #e6faf1;
-		color: #16b84e;
-	}
-
-	.tab-kitchen .chip-select-btn {
-		width: 36rpx;
-		height: 36rpx;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border: 0;
-		background: #35cda4;
-		color: #fbfefd;
-		font-size: 26rpx;
-		line-height: 1;
-		font-weight: 900;
-		box-sizing: border-box;
-		flex-shrink: 0;
-		box-shadow: 0 8rpx 16rpx rgba(53, 205, 164, 0.22);
-	}
-
-	.tab-kitchen .level-three-chip.selected .chip-select-btn {
-		background: #18c256;
-		color: #fbfefd;
-	}
-
-	.tab-kitchen .level-three-scroll {
-		flex: 1;
-		height: 82rpx;
-		white-space: nowrap;
-		overflow: hidden;
-		box-sizing: border-box;
-	}
-
-	.tab-kitchen .level-three-scroll .level-three-chip {
-		display: inline-flex;
-		margin: 18rpx 16rpx 0 0;
-		vertical-align: top;
-	}
-
-	.tab-kitchen .third-row-more {
-		position: absolute;
-		right: 26rpx;
-		top: 22rpx;
-		width: 48rpx;
-		height: 38rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 12rpx;
-		background: #fbfefd;
-		box-shadow: -14rpx 0 18rpx rgba(251, 254, 253, 0.92);
-		color: #6d7471;
-		font-size: 28rpx;
-		font-weight: 900;
+	.tab-kitchen .three-level-category-strip .refresh-action {
+		top: 17rpx;
+		right: 34rpx;
 	}
 
 	.tab-kitchen .kitchen-category-body {
-		min-height: calc(100vh - 918rpx);
+		width: 750rpx;
+		min-height: calc(100vh - 682rpx);
+		display: flex;
+		align-items: stretch;
+		background: #fbfefd;
 	}
 
 	.tab-kitchen .kitchen-side-pane {
-		min-height: calc(100vh - 918rpx);
+		width: 188rpx;
+		min-height: calc(100vh - 682rpx);
+		background: #f7f8fa;
+		flex-shrink: 0;
 	}
 
 	.tab-kitchen .side-category {
-		height: 96rpx;
+		height: 108rpx;
+		padding: 0 18rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -6015,6 +5868,8 @@
 		font-weight: 800;
 		color: #3e4542;
 		position: relative;
+		text-align: center;
+		box-sizing: border-box;
 	}
 
 	.tab-kitchen .side-category.active {
@@ -6027,25 +5882,38 @@
 		content: "";
 		position: absolute;
 		left: 0;
-		top: 33rpx;
+		top: 37rpx;
 		width: 6rpx;
-		height: 30rpx;
+		height: 34rpx;
 		border-radius: 0 6rpx 6rpx 0;
 		background: #35cda4;
 	}
 
-	.tab-kitchen .category-breadcrumb {
-		height: 58rpx;
-		margin: 18rpx 20rpx 12rpx;
-		padding: 0 18rpx;
+	.tab-kitchen .category-manage {
+		height: 118rpx;
+		margin-top: 10rpx;
+		padding: 0 14rpx 0 24rpx;
 		display: flex;
 		align-items: center;
-		gap: 10rpx;
-		border-radius: 12rpx;
-		background: #f6faf8;
-		font-size: 24rpx;
+		justify-content: flex-start;
+		gap: 12rpx;
+		border-radius: 0;
+		background: transparent;
+		box-sizing: border-box;
+	}
+
+	.tab-kitchen .category-breadcrumb {
+		display: none;
+	}
+
+	.tab-kitchen .category-main-head {
+		height: 88rpx;
+		padding: 0 28rpx;
+		display: flex;
+		align-items: center;
+		font-size: 34rpx;
 		font-weight: 800;
-		color: #707875;
+		color: #202725;
 		box-sizing: border-box;
 	}
 
@@ -6060,41 +5928,39 @@
 	}
 
 	.tab-kitchen .kitchen-dish-list {
-		padding: 0 20rpx 192rpx;
+		padding: 0 24rpx 210rpx 26rpx;
 		display: flex;
 		flex-direction: column;
-		gap: 16rpx;
+		gap: 0;
 		box-sizing: border-box;
 	}
 
 	.tab-kitchen .kitchen-dish-card {
-		height: 164rpx;
+		height: 196rpx;
 		margin: 0;
-		padding: 18rpx 18rpx 18rpx 20rpx;
+		padding: 18rpx 0;
 		display: flex;
 		align-items: center;
-		border-radius: 16rpx;
+		border-radius: 0;
 		background: #fbfefd;
-		border: 1rpx solid #eef1ef;
-		box-shadow: 0 10rpx 24rpx rgba(28, 45, 40, 0.045);
+		border: 0;
+		box-shadow: none;
 		box-sizing: border-box;
 		position: relative;
 	}
 
 	.tab-kitchen .kitchen-dish-card.active {
-		border-color: rgba(53, 205, 164, 0.55);
-		box-shadow: 0 12rpx 28rpx rgba(35, 181, 134, 0.08);
+		box-shadow: none;
 	}
 
 	.tab-kitchen .kitchen-dish-card.selected {
-		border-color: rgba(53, 205, 164, 0.7);
-		background: #f4fffb;
+		background: #f5fffb;
 	}
 
 	.tab-kitchen .kitchen-dish-img {
-		width: 108rpx;
-		height: 108rpx;
-		border-radius: 12rpx;
+		width: 160rpx;
+		height: 128rpx;
+		border-radius: 8rpx;
 		background: #f4f6f5;
 		flex-shrink: 0;
 	}
@@ -6102,16 +5968,19 @@
 	.tab-kitchen .kitchen-dish-info {
 		flex: 1;
 		min-width: 0;
-		margin-left: 20rpx;
+		height: 128rpx;
+		margin-left: 22rpx;
 		display: flex;
 		flex-direction: column;
-		gap: 16rpx;
+		justify-content: space-between;
+		padding: 6rpx 0 8rpx;
+		box-sizing: border-box;
 	}
 
 	.tab-kitchen .dish-action-cell {
-		width: 82rpx;
-		height: 100%;
-		margin-left: 14rpx;
+		width: 64rpx;
+		height: 128rpx;
+		margin-left: 8rpx;
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
@@ -6128,7 +5997,8 @@
 		text-overflow: ellipsis;
 	}
 
-	.tab-kitchen .kitchen-dish-desc {
+	.tab-kitchen .kitchen-dish-desc,
+	.tab-kitchen .kitchen-dish-sales {
 		font-size: 22rpx;
 		line-height: 1;
 		font-weight: 700;
@@ -6139,8 +6009,8 @@
 	}
 
 	.tab-kitchen .dish-select-btn {
-		width: 58rpx;
-		height: 58rpx;
+		width: 54rpx;
+		height: 54rpx;
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
@@ -6148,14 +6018,14 @@
 		border: 0;
 		background: #35cda4;
 		color: #fbfefd;
-		font-size: 42rpx;
+		font-size: 40rpx;
 		line-height: 1;
 		font-weight: 900;
 		box-sizing: border-box;
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
-		box-shadow: 0 10rpx 20rpx rgba(53, 205, 164, 0.28);
+		box-shadow: 0 8rpx 18rpx rgba(53, 205, 164, 0.25);
 		transition: transform 160ms ease-out, opacity 160ms ease-out;
 	}
 
@@ -6183,13 +6053,6 @@
 		transform: rotate(-45deg);
 		margin-top: -4rpx;
 		box-sizing: border-box;
-	}
-
-	.tab-kitchen .chip-select-btn .select-checkmark {
-		width: 14rpx;
-		height: 8rpx;
-		border-left-width: 3rpx;
-		border-bottom-width: 3rpx;
 	}
 
 	/* Share square feed */
