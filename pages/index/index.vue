@@ -251,9 +251,9 @@
 						</view>
 
 						<view class="cart-center">
-							<view class="cart-btn btn-invite" v-if="selectedDishIds.length === 0" @tap="onInviteTap">
+							<button class="cart-btn btn-invite" open-type="share" hover-class="cart-btn-hover" @tap="onInviteTap">
 								<text>邀请下单</text>
-							</view>
+							</button>
 							<view class="cart-btn btn-done" :class="{ active: selectedDishIds.length > 0 }" @tap="onDoneTap">
 								<text>{{ selectedDishIds.length > 0 ? `选好了(${selectedDishIds.length})` : '选好了' }}</text>
 							</view>
@@ -695,6 +695,7 @@
 				showAddDrawer: false,
 				dishes: [],
 				selectedDishIds: [],
+				pendingInviteDishIds: [],
 				shopInfo: null,
 				myOrders: [],
 				ordersTotal: 0,
@@ -763,9 +764,10 @@
 					.filter(Boolean);
 			}
 		},
-		onLoad() {
+		onLoad(options = {}) {
 			this.tutorialStep = 0;
 			this.generateActivityCells();
+			this.applyInviteOptions(options);
 		},
 		onShow() {
 			if (!getToken()) {
@@ -780,6 +782,18 @@
 			this.loadShareSquare();
 			this.loadShopInfo();
 			this.loadMyOrders();
+		},
+		onShareAppMessage() {
+			return this.buildInviteSharePayload();
+		},
+		onShareTimeline() {
+			const payload = this.buildInviteSharePayload();
+			const query = payload.path.indexOf('?') > -1 ? payload.path.split('?')[1] : '';
+			return {
+				title: payload.title,
+				query,
+				imageUrl: payload.imageUrl
+			};
 		},
 		methods: {
 			// ==== 后端数据对接 ====
@@ -940,6 +954,58 @@
 				const cached = uni.getStorageSync('selectedDishIds');
 				this.selectedDishIds = Array.isArray(cached) ? cached : [];
 			},
+			normalizeInviteIds(value) {
+				const raw = Array.isArray(value) ? value.join(',') : String(value || '');
+				let decoded = raw;
+				try {
+					decoded = decodeURIComponent(raw);
+				} catch (e) {}
+				const seen = {};
+				return decoded
+					.split(',')
+					.map(item => item.trim())
+					.filter(Boolean)
+					.filter(id => {
+						const key = String(id);
+						if (seen[key]) return false;
+						seen[key] = true;
+						return true;
+					})
+					.slice(0, 50);
+			},
+			applyInviteOptions(options = {}) {
+				const ids = this.normalizeInviteIds(options.ids || options.dishIds);
+				if (!ids.length) return;
+				this.pendingInviteDishIds = ids;
+				this.selectedDishIds = ids;
+				uni.setStorageSync('selectedDishIds', ids);
+				uni.showToast({
+					title: `已带入${ids.length}道邀请菜品`,
+					icon: 'none'
+				});
+			},
+			buildInviteSharePayload() {
+				const ids = this.normalizeInviteIds(this.selectedDishIds);
+				const shopName = (this.shopInfo && this.shopInfo.shopName) || this.kitchenName || '小兔子厨房';
+				const selectedNames = this.selectedKitchenDishes
+					.map(dish => dish.name)
+					.filter(Boolean)
+					.slice(0, 2)
+					.join('、');
+				const title = ids.length
+					? (selectedNames ? `${shopName}邀请你一起吃：${selectedNames}` : `${shopName}已选${ids.length}道菜，来一起下单`)
+					: `${shopName}邀请你一起点菜`;
+				const firstDish = this.selectedKitchenDishes[0] || {};
+				const imageUrl = firstDish.image
+					|| (this.shopInfo && (this.shopInfo.cover || this.shopInfo.coverImage || this.shopInfo.logo || this.shopInfo.shopLogo))
+					|| '/static/kitchen_banner.png';
+				const query = ids.length ? `from=invite&ids=${encodeURIComponent(ids.join(','))}` : 'from=invite';
+				return {
+					title,
+					path: `/pages/index/index?${query}`,
+					imageUrl
+				};
+			},
 			isDishSelected(id) {
 				return this.selectedDishIds.some(item => String(item) === String(id));
 			},
@@ -1033,12 +1099,16 @@
 				});
 			},
 			onInviteTap() {
+				const payload = this.buildInviteSharePayload();
+				uni.setStorageSync('lastInviteSharePayload', payload);
+				// #ifndef MP-WEIXIN
 				uni.setClipboardData({
-					data: '我在「小兔子厨房」帮你选好菜啦，点开小程序就能一起下单～',
+					data: `${payload.title}\n${payload.path}`,
 					success: () => {
 						uni.showToast({ title: '邀请文案已复制', icon: 'none' });
 					}
 				});
+				// #endif
 			},
 			onDoneTap() {
 				if (this.selectedDishIds.length === 0) return;
@@ -1825,6 +1895,21 @@
 		font-weight: bold;
 		box-sizing: border-box;
 		transition: all 0.2s;
+	}
+
+	button.cart-btn {
+		padding: 0;
+		margin: 0;
+		line-height: 1;
+	}
+
+	button.cart-btn::after {
+		border: 0;
+	}
+
+	.cart-btn-hover {
+		opacity: 0.86;
+		transform: scale(0.98);
 	}
 
 	.btn-invite {
