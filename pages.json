@@ -1,0 +1,95 @@
+{
+	"pages": [
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "我的厨房",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/dish-manage/dish-manage",
+			"style": {
+				"navigationBarTitleText": "菜品管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/category-manage/category-manage",
+			"style": {
+				"navigationBarTitleText": "分类管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/food-explore/food-explore",
+			"style": {
+				"navigationBarTitleText": "烟火食记",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/dish-detail/dish-detail",
+			"style": {
+				"navigationBarTitleText": "菜品详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/kitchen-detail/kitchen-detail",
+			"style": {
+				"navigationBarTitleText": "厨房详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/kitchen-settings/kitchen-settings",
+			"style": {
+				"navigationBarTitleText": "厨房设置",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/quick-add/quick-add",
+			"style": {
+				"navigationBarTitleText": "快速添加菜品",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/detailed-add/detailed-add",
+			"style": {
+				"navigationBarTitleText": "添加菜品",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/recipe-recommend/recipe-recommend",
+			"style": {
+				"navigationBarTitleText": "智能菜谱推荐",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/submit-order/submit-order",
+			"style": {
+				"navigationBarTitleText": "提交订单",
+				"navigationStyle": "custom"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "管家",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"uniIdRouter": {}
+}

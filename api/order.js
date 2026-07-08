@@ -1,0 +1,21 @@
+// 订单接口（需登录）
+import { get, post } from '@/utils/request.js'
+import config from '@/config/index.js'
+
+const P = config.apiPrefix
+
+// 提交订单
+// data: { serviceType, chefId?, receiverName?, receiverPhone?, receiverAddress?, remark?, shareFlag?, items:[{dishId, quantity, specJson?}] }
+export function apiSubmitOrder(data) {
+	return post(P + '/order/submit', data)
+}
+
+// 我的订单列表（分页）
+export function apiMyOrders(params) {
+	return get(P + '/order/my', params)
+}
+
+// 订单详情
+export function apiOrderDetail(id) {
+	return get(P + '/order/detail/' + id)
+}
