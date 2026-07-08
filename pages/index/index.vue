@@ -239,9 +239,11 @@
 										<text class="kitchen-dish-name">{{ dish.name }}</text>
 										<text class="kitchen-dish-desc">{{ dish.desc }}</text>
 									</view>
-									<view class="dish-select-btn" @tap.stop="toggleSelectDish(dish.id)">
-										<view v-if="isDishSelected(dish.id)" class="select-checkmark"></view>
-										<text v-else>+</text>
+									<view class="dish-action-cell">
+										<view class="dish-select-btn" @tap.stop="toggleSelectDish(dish.id)">
+											<view v-if="isDishSelected(dish.id)" class="select-checkmark"></view>
+											<text v-else class="dish-plus-symbol">+</text>
+										</view>
 									</view>
 								</view>
 							</view>
@@ -5943,20 +5945,21 @@
 	}
 
 	.tab-kitchen .chip-select-btn {
-		width: 34rpx;
-		height: 34rpx;
+		width: 36rpx;
+		height: 36rpx;
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border: 2rpx solid #18c256;
-		background: #fbfefd;
-		color: #18c256;
+		border: 0;
+		background: #35cda4;
+		color: #fbfefd;
 		font-size: 26rpx;
 		line-height: 1;
 		font-weight: 900;
 		box-sizing: border-box;
 		flex-shrink: 0;
+		box-shadow: 0 8rpx 16rpx rgba(53, 205, 164, 0.22);
 	}
 
 	.tab-kitchen .level-three-chip.selected .chip-select-btn {
@@ -6067,7 +6070,7 @@
 	.tab-kitchen .kitchen-dish-card {
 		height: 164rpx;
 		margin: 0;
-		padding: 18rpx 20rpx;
+		padding: 18rpx 18rpx 18rpx 20rpx;
 		display: flex;
 		align-items: center;
 		border-radius: 16rpx;
@@ -6075,6 +6078,7 @@
 		border: 1rpx solid #eef1ef;
 		box-shadow: 0 10rpx 24rpx rgba(28, 45, 40, 0.045);
 		box-sizing: border-box;
+		position: relative;
 	}
 
 	.tab-kitchen .kitchen-dish-card.active {
@@ -6104,6 +6108,16 @@
 		gap: 16rpx;
 	}
 
+	.tab-kitchen .dish-action-cell {
+		width: 82rpx;
+		height: 100%;
+		margin-left: 14rpx;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		flex-shrink: 0;
+	}
+
 	.tab-kitchen .kitchen-dish-name {
 		font-size: 32rpx;
 		line-height: 1;
@@ -6125,28 +6139,40 @@
 	}
 
 	.tab-kitchen .dish-select-btn {
-		width: 64rpx;
-		height: 64rpx;
-		margin-left: 18rpx;
+		width: 58rpx;
+		height: 58rpx;
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border: 3rpx solid #18c256;
-		color: #18c256;
-		font-size: 36rpx;
+		border: 0;
+		background: #35cda4;
+		color: #fbfefd;
+		font-size: 42rpx;
 		line-height: 1;
-		font-weight: 700;
+		font-weight: 900;
 		box-sizing: border-box;
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
-		box-shadow: 0 8rpx 18rpx rgba(24, 194, 86, 0.13);
+		box-shadow: 0 10rpx 20rpx rgba(53, 205, 164, 0.28);
+		transition: transform 160ms ease-out, opacity 160ms ease-out;
 	}
 
 	.tab-kitchen .kitchen-dish-card.selected .dish-select-btn {
 		background: #18c256;
 		color: #fbfefd;
+	}
+
+	.tab-kitchen .dish-select-btn:active {
+		transform: scale(0.92);
+		opacity: 0.86;
+	}
+
+	.tab-kitchen .dish-plus-symbol {
+		display: block;
+		line-height: 1;
+		transform: translateY(-3rpx);
 	}
 
 	.tab-kitchen .select-checkmark {
