@@ -19,3 +19,8 @@ export function apiMyOrders(params) {
 export function apiOrderDetail(id) {
 	return get(P + '/order/detail/' + id)
 }
+
+// 申请退款
+export function apiOrderRefund(id, data = {}) {
+	return post(P + '/order/refund/' + id, data)
+}

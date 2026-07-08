@@ -133,7 +133,7 @@
 				</view>
 				
 				<view class="btn-confirm-steal" @tap="confirmStealDish">
-					<text>确认偷菜</text>
+					<text>{{ stealing ? '正在保存...' : '确认偷菜' }}</text>
 				</view>
 			</view>
 		</view>
@@ -167,8 +167,9 @@
 </template>
 
 <script>
-	import { apiDishDetail } from '@/api/dish.js'
-	import { apiCategoryTree } from '@/api/category.js'
+	import { apiDishDetail, apiDishAdd } from '@/api/dish.js'
+	import { apiCategoryTree, apiCategoryAdd } from '@/api/category.js'
+	import { ensureLogin } from '@/utils/login.js'
 
 	export default {
 		data() {
@@ -176,6 +177,8 @@
 				showStealModal: false,
 				showCategoryDrawer: false,
 				selectedCategory: '默认分类',
+				categoryMap: {},
+				stealing: false,
 				categories: ['默认分类'],
 				// 菜品不存在（无 id 或加载失败）
 				notFound: false,
@@ -265,12 +268,21 @@
 					const res = await apiCategoryTree();
 					const roots = (res && res.data) || [];
 					if (roots.length) {
-						this.categories = ['默认分类', ...roots.map(c => c.catName)];
+						const map = {};
+						this.categories = roots.map(c => {
+							map[c.catName] = c.id;
+							return c.catName;
+						});
+						this.categoryMap = map;
+						if (!this.categories.includes(this.selectedCategory)) {
+							this.selectedCategory = this.categories[0];
+						}
 						return;
 					}
 				} catch (e) {}
 				const list = uni.getStorageSync('categories') || [];
 				this.categories = ['默认分类', ...list.filter(c => c !== '默认分类')];
+				this.categoryMap = {};
 			},
 			openStealModal() {
 				this.showStealModal = true;
@@ -303,55 +315,78 @@
 					title: '创建分类',
 					placeholderText: '请输入分类名称',
 					editable: true,
-					success: (res) => {
-						if (res.confirm && res.content.trim()) {
-							const name = res.content.trim();
-							// Add to storage categories
+					success: async (res) => {
+						if (!res.confirm || !res.content.trim()) return;
+						const name = res.content.trim();
+						try {
+							await ensureLogin();
+							await apiCategoryAdd({ catName: name });
+							await this.loadCategories();
+							this.selectedCategory = name;
+						} catch (e) {
 							const list = uni.getStorageSync('categories') || [];
 							if (!list.includes(name)) {
 								list.push(name);
 								uni.setStorageSync('categories', list);
-								this.loadCategories();
-								this.selectedCategory = name; // Auto-select
+								this.categories = ['默认分类', ...list.filter(c => c !== '默认分类')];
 							}
-							this.showCategoryDrawer = false;
-							this.showStealModal = true;
+							this.selectedCategory = name;
 						}
+						this.showCategoryDrawer = false;
+						this.showStealModal = true;
 					}
 				});
 			},
-			confirmStealDish() {
-				const dishes = uni.getStorageSync('dishes') || [];
-
-				// Build dish data（来自当前菜品详情）
-				const newDish = {
-					id: this.stealSource.id,
-					name: this.stealSource.name,
-					image: this.stealSource.image,
-					category: this.selectedCategory,
-					desc: this.stealSource.desc
-				};
-
-				// Avoid duplicate
-				if (!dishes.some(d => d.id === newDish.id)) {
-					dishes.push(newDish);
-					uni.setStorageSync('dishes', dishes);
+			async ensureSelectedCategoryId() {
+				const exists = this.categoryMap[this.selectedCategory];
+				if (exists != null) return exists;
+				await ensureLogin();
+				await apiCategoryAdd({ catName: this.selectedCategory || '默认分类' });
+				await this.loadCategories();
+				return this.categoryMap[this.selectedCategory] || null;
+			},
+			async confirmStealDish() {
+				if (this.stealing) return;
+				if (!this.stealSource || !this.stealSource.name) {
+					uni.showToast({ title: '菜品信息缺失', icon: 'none' });
+					return;
 				}
-				
-				uni.showToast({
-					title: '偷菜成功！',
-					icon: 'success',
-					duration: 1200
-				});
-				
-				this.closeStealModal();
-				
-				// Go back to homepage after short delay
-				setTimeout(() => {
-					uni.navigateBack({
-						delta: 2 // Navigate back to the homepage
+				this.stealing = true;
+				try {
+					const categoryId = await this.ensureSelectedCategoryId();
+					if (categoryId == null) {
+						uni.showToast({ title: '请先选择或创建分类', icon: 'none' });
+						return;
+					}
+					await apiDishAdd({
+						dishName: this.stealSource.name,
+						cover: this.stealSource.image || '/static/onion_chicken.png',
+						categoryId,
+						story: this.stealSource.desc || '',
+						ingredients: this.backendIngredients.join('\n'),
+						status: '1',
+						recipeOpen: this.backendSteps.length ? '1' : '0',
+						steps: this.backendSteps.map((step, index) => ({
+							stepNo: index + 1,
+							image: step.image || '',
+							content: step.text || '',
+							timer: 0
+						}))
 					});
-				}, 1200);
+					uni.showToast({
+						title: '已加入我的厨房',
+						icon: 'success',
+						duration: 1200
+					});
+					this.closeStealModal();
+					setTimeout(() => {
+						uni.navigateBack({ delta: 2 });
+					}, 1200);
+				} catch (e) {
+					// 请求层已经提示错误
+				} finally {
+					this.stealing = false;
+				}
 			}
 		}
 	}

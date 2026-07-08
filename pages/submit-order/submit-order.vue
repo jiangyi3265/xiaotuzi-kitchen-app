@@ -410,6 +410,7 @@
 					}
 					await apiSubmitOrder(payload);
 					uni.removeStorageSync('selectedDishIds');
+					uni.setStorageSync('afterSubmitGoOrder', '1');
 					uni.showToast({ title: '下单成功', icon: 'success' });
 					setTimeout(() => uni.navigateBack(), 1200);
 				} catch (e) {

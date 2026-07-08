@@ -305,7 +305,10 @@
 							<text class="my-order-service">{{ serviceTypeText(o.serviceType) }}</text>
 							<text class="my-order-amount">￥{{ o.totalAmount }} · {{ o.totalCount }}件</text>
 						</view>
-						<text class="my-order-time">{{ formatTime(o.createTime) }}</text>
+						<view class="my-order-foot">
+							<text class="my-order-time">{{ formatTime(o.createTime) }}</text>
+							<text class="my-order-link">{{ canRefund(o) ? '详情 / 申请退款' : '查看详情' }}</text>
+						</view>
 					</view>
 				</view>
 
@@ -652,6 +655,117 @@
 			</view>
 		</view>
 
+		<!-- 订单详情/退款面板 -->
+		<view class="modal-backdrop" v-if="showOrderDetail" @tap="closeOrderDetail"></view>
+		<view class="detail-sheet order-detail-sheet" v-if="showOrderDetail" @tap.stop>
+			<view class="detail-sheet-head">
+				<view class="detail-title-col">
+					<text class="detail-title">订单详情</text>
+					<text class="detail-subtitle">{{ orderDetail && orderDetail.orderNo ? '#' + orderDetail.orderNo : '正在读取订单' }}</text>
+				</view>
+				<view class="detail-close" @tap="closeOrderDetail">
+					<text>×</text>
+				</view>
+			</view>
+			<view class="detail-loading" v-if="orderDetailLoading">
+				<text>正在加载订单详情...</text>
+			</view>
+			<scroll-view class="detail-scroll" scroll-y v-else-if="orderDetail">
+				<view class="detail-status-row">
+					<text class="detail-status" :class="'st-' + orderDetail.orderStatus">{{ orderStatusText(orderDetail.orderStatus) }}</text>
+					<text class="detail-price">￥{{ orderDetail.totalAmount || 0 }} · {{ orderDetail.totalCount || 0 }}件</text>
+				</view>
+				<view class="detail-section">
+					<text class="section-title">购买菜品</text>
+					<view class="order-item-row" v-for="item in orderDetailItems" :key="item.id || item.dishId">
+						<image class="order-item-img" :src="item.dishCover || '/static/onion_chicken.png'" mode="aspectFill"></image>
+						<view class="order-item-main">
+							<text class="order-item-name">{{ item.dishName || '菜品' }}</text>
+							<text class="order-item-spec">{{ item.specJson ? item.specJson : '默认规格' }}</text>
+						</view>
+						<view class="order-item-meta">
+							<text>￥{{ item.price || 0 }}</text>
+							<text>x{{ item.quantity || 1 }}</text>
+						</view>
+					</view>
+					<view class="detail-empty-line" v-if="!orderDetailItems.length">
+						<text>暂无菜品明细</text>
+					</view>
+				</view>
+				<view class="detail-section">
+					<text class="section-title">服务信息</text>
+					<view class="detail-line">
+						<text>服务方式</text>
+						<text>{{ serviceTypeText(orderDetail.serviceType) }}</text>
+					</view>
+					<view class="detail-line" v-if="orderDetail.riderName">
+						<text>配送员</text>
+						<text>{{ orderDetail.riderName }}</text>
+					</view>
+					<view class="detail-line" v-if="orderDetail.chefName">
+						<text>厨师</text>
+						<text>{{ orderDetail.chefName }}</text>
+					</view>
+					<view class="detail-line" v-if="orderDetail.receiverName">
+						<text>收货人</text>
+						<text>{{ orderDetail.receiverName }} {{ orderDetail.receiverPhone }}</text>
+					</view>
+					<view class="detail-address" v-if="orderDetail.receiverAddress">
+						<text>{{ orderDetail.receiverAddress }}</text>
+					</view>
+					<view class="detail-address" v-if="orderDetail.remark">
+						<text>备注：{{ orderDetail.remark }}</text>
+					</view>
+				</view>
+			</scroll-view>
+			<view class="detail-actions" v-if="orderDetail && !orderDetailLoading">
+				<view class="detail-secondary-btn" @tap="closeOrderDetail">
+					<text>关闭</text>
+				</view>
+				<view class="detail-primary-btn" :class="{ disabled: !canRefund(orderDetail) || refundingOrder }" @tap="requestOrderRefund">
+					<text>{{ refundingOrder ? '提交中...' : (canRefund(orderDetail) ? '申请退款' : orderStatusText(orderDetail.orderStatus)) }}</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 评论列表/发送面板 -->
+		<view class="modal-backdrop" v-if="showCommentDrawer" @tap="closeCommentDrawer"></view>
+		<view class="detail-sheet comment-sheet" v-if="showCommentDrawer" @tap.stop>
+			<view class="detail-sheet-head">
+				<view class="detail-title-col">
+					<text class="detail-title">评论</text>
+					<text class="detail-subtitle">{{ activeCommentPost ? activeCommentPost.title : '成品分享' }}</text>
+				</view>
+				<view class="detail-close" @tap="closeCommentDrawer">
+					<text>×</text>
+				</view>
+			</view>
+			<scroll-view class="comment-scroll" scroll-y>
+				<view class="detail-loading" v-if="commentLoading">
+					<text>正在加载评论...</text>
+				</view>
+				<view class="comment-row" v-for="comment in commentList" :key="comment.id || comment.localId">
+					<image class="comment-avatar" :src="comment.userAvatar || '/static/kitchen_avatar.png'" mode="aspectFill"></image>
+					<view class="comment-main">
+						<view class="comment-head">
+							<text class="comment-name">{{ comment.userNickname || '小兔子用户' }}</text>
+							<text class="comment-time">{{ formatTime(comment.createTime) }}</text>
+						</view>
+						<text class="comment-content">{{ comment.content }}</text>
+					</view>
+				</view>
+				<view class="comment-empty" v-if="!commentLoading && !commentList.length">
+					<text>还没有评论，来写第一条</text>
+				</view>
+			</scroll-view>
+			<view class="comment-input-row">
+				<input class="comment-input" v-model="commentDraft" confirm-type="send" placeholder="写下你的评论" @confirm="submitComment" />
+				<view class="comment-send" :class="{ disabled: commentSubmitting || !commentDraft.trim() }" @tap="submitComment">
+					<text>{{ commentSubmitting ? '发送中' : '发送' }}</text>
+				</view>
+			</view>
+		</view>
+
 		<!-- 进入小程序的公告弹窗 -->
 		<view class="announce-backdrop" v-if="showAnnouncement" @tap="closeAnnouncement"></view>
 		<view class="announce-popup" v-if="showAnnouncement">
@@ -678,9 +792,9 @@
 	import { apiCategoryTree } from '@/api/category.js'
 	import { apiDishList } from '@/api/dish.js'
 	import { apiShareList, apiShareLike, apiSharePublish } from '@/api/share.js'
-	import { apiCommentAdd } from '@/api/comment.js'
+	import { apiCommentList, apiCommentAdd } from '@/api/comment.js'
 	import { apiShopInfo } from '@/api/shop.js'
-	import { apiMyOrders } from '@/api/order.js'
+	import { apiMyOrders, apiOrderDetail, apiOrderRefund } from '@/api/order.js'
 	import { ensureLogin } from '@/utils/login.js'
 	import { getToken } from '@/utils/auth.js'
 	import { uploadFile } from '@/utils/request.js'
@@ -699,11 +813,22 @@
 				shopInfo: null,
 				myOrders: [],
 				ordersTotal: 0,
+				showOrderDetail: false,
+				orderDetail: null,
+				orderDetailLoading: false,
+				refundingOrder: false,
 				activeOrderSubTab: 'order', // 'order' | 'diary'
 				myGridPageIndex: 0,
 				activityCells: [],
 				// 分享广场：完全靠 loadShareSquare 填充；为空显示空状态
 				shareSquarePosts: [],
+				publishingShare: false,
+				showCommentDrawer: false,
+				activeCommentPost: null,
+				commentList: [],
+				commentDraft: '',
+				commentLoading: false,
+				commentSubmitting: false,
 				activeKitchenLevelOneId: '',
 				activeKitchenLevelTwoId: '',
 				activeKitchenDishId: '',
@@ -762,6 +887,9 @@
 				return this.selectedDishIds
 					.map(id => this.flatKitchenDishes.find(dish => String(dish.id) === String(id)))
 					.filter(Boolean);
+			},
+			orderDetailItems() {
+				return (this.orderDetail && Array.isArray(this.orderDetail.items)) ? this.orderDetail.items : [];
 			}
 		},
 		onLoad(options = {}) {
@@ -782,6 +910,7 @@
 			this.loadShareSquare();
 			this.loadShopInfo();
 			this.loadMyOrders();
+			this.consumeAfterSubmitJump();
 		},
 		onShareAppMessage() {
 			return this.buildInviteSharePayload();
@@ -859,6 +988,7 @@
 				try {
 					const res = await apiShareList({ pageNum: 1, pageSize: 20 });
 					const rows = (res && res.rows) || [];
+					const likedCache = uni.getStorageSync('likedSharePosts') || {};
 					this.shareSquarePosts = rows.map(p => ({
 						id: p.id,
 						author: p.userNickname || '小兔子用户',
@@ -870,7 +1000,7 @@
 						tags: p.tags ? p.tags.split(',').filter(Boolean) : [],
 						likes: p.likeCount || 0,
 						comments: p.commentCount || 0,
-						liked: !!p.liked
+						liked: p.liked === true || p.liked === 'true' || !!likedCache[p.id]
 					}));
 				} catch (e) {}
 			},
@@ -901,6 +1031,12 @@
 					this.ordersTotal = (res && res.total) || 0;
 				} catch (e) {}
 			},
+			consumeAfterSubmitJump() {
+				if (uni.getStorageSync('afterSubmitGoOrder') !== '1') return;
+				uni.removeStorageSync('afterSubmitGoOrder');
+				this.currentTabbar = 'order';
+				this.activeOrderSubTab = 'order';
+			},
 			formatTime(t) {
 				if (!t) return '';
 				// 后端返回 "yyyy-MM-dd HH:mm:ss"，展示到分钟
@@ -910,10 +1046,60 @@
 				return { '0': '同城配送', '1': '厨师代炒', '2': '店内自提' }[t] || '—';
 			},
 			orderStatusText(s) {
-				return { '0': '待处理', '1': '已接单', '2': '制作中', '3': '已完成', '4': '已取消' }[s] || '—';
+				return { '0': '待处理', '1': '已接单', '2': '制作中', '3': '已完成', '4': '已取消', '5': '申请退款' }[s] || '—';
 			},
-			onOrderTap(order) {
-				uni.showToast({ title: '订单 ' + (order.orderNo || ''), icon: 'none' });
+			canRefund(order) {
+				if (!order) return false;
+				return ['0', '1', '2'].includes(String(order.orderStatus));
+			},
+			async onOrderTap(order) {
+				if (!order || !order.id) return;
+				this.showOrderDetail = true;
+				this.orderDetailLoading = true;
+				this.orderDetail = { ...order, items: order.items || [] };
+				try {
+					await ensureLogin();
+					const res = await apiOrderDetail(order.id);
+					this.orderDetail = (res && res.data) || this.orderDetail;
+				} catch (e) {
+					uni.showToast({ title: '订单详情读取失败', icon: 'none' });
+				} finally {
+					this.orderDetailLoading = false;
+				}
+			},
+			closeOrderDetail() {
+				this.showOrderDetail = false;
+				this.orderDetail = null;
+				this.orderDetailLoading = false;
+				this.refundingOrder = false;
+			},
+			requestOrderRefund() {
+				if (!this.orderDetail || !this.canRefund(this.orderDetail) || this.refundingOrder) return;
+				uni.showModal({
+					title: '申请退款',
+					editable: true,
+					placeholderText: '可填写退款原因，方便商家处理',
+					confirmText: '提交',
+					success: async (m) => {
+						if (!m.confirm) return;
+						this.refundingOrder = true;
+						try {
+							await ensureLogin();
+							const res = await apiOrderRefund(this.orderDetail.id, { reason: (m.content || '').trim() });
+							const updated = (res && res.data) || { ...this.orderDetail, orderStatus: '5' };
+							this.orderDetail = updated;
+							const idx = this.myOrders.findIndex(item => String(item.id) === String(updated.id));
+							if (idx > -1) {
+								this.myOrders.splice(idx, 1, { ...this.myOrders[idx], ...updated });
+							}
+							uni.showToast({ title: '退款申请已提交', icon: 'none' });
+						} catch (e) {
+							uni.showToast({ title: '退款申请失败', icon: 'none' });
+						} finally {
+							this.refundingOrder = false;
+						}
+					}
+				});
 			},
 			maybeShowAnnouncement() {
 				// 公告开关由后端下发（announceEnabled==='0' 则不弹）
@@ -1166,6 +1352,7 @@
 
 			// Discover page methods
 			async onPublishResultTap() {
+				if (this.publishingShare) return;
 				try {
 					await ensureLogin();
 				} catch (e) {
@@ -1177,6 +1364,7 @@
 					success: (imgRes) => {
 						const path = imgRes.tempFilePaths && imgRes.tempFilePaths[0];
 						if (!path) return;
+						this.publishingShare = true;
 						uploadFile(path).then((up) => {
 							const imageUrl = up.url;
 							uni.showModal({
@@ -1184,19 +1372,31 @@
 								editable: true,
 								placeholderText: '说说这道菜的故事…',
 								success: (m) => {
-									if (!m.confirm) return;
+									if (!m.confirm) {
+										this.publishingShare = false;
+										return;
+									}
 									const content = (m.content || '').trim();
 									apiSharePublish({
 										title: content.slice(0, 20) || '我的成品',
 										content: content,
 										images: imageUrl
-									}).then(() => {
-										uni.showToast({ title: '发布成功，等待审核', icon: 'none' });
+									}).then((res) => {
+										const post = res && res.data;
+										const passed = !post || post.auditStatus === '1';
+										uni.showToast({ title: passed ? '发布成功' : '发布成功，等待审核', icon: 'none' });
 										this.loadShareSquare();
-									}).catch(() => {});
+									}).catch(() => {}).finally(() => {
+										this.publishingShare = false;
+									});
+								},
+								fail: () => {
+									this.publishingShare = false;
 								}
 							});
-						}).catch(() => {});
+						}).catch(() => {
+							this.publishingShare = false;
+						});
 					}
 				});
 			},
@@ -1204,39 +1404,93 @@
 				const post = this.shareSquarePosts.find(item => item.id === id);
 				if (!post) return;
 				// 仅真实后端动态(id 为数字)可点赞，用后端返回的 liked 决定 UI
-				if (typeof id !== 'number') return;
+				if (typeof id !== 'number') {
+					uni.showToast({ title: '这条内容暂不能点赞', icon: 'none' });
+					return;
+				}
+				const oldLiked = !!post.liked;
+				const oldLikes = Number(post.likes) || 0;
+				post.liked = !oldLiked;
+				post.likes = Math.max(0, oldLikes + (post.liked ? 1 : -1));
 				ensureLogin().then(() => apiShareLike(id)).then((res) => {
 					const liked = !!(res && res.data && res.data.liked);
-					if (post.liked === liked) return;
 					post.liked = liked;
-					post.likes += liked ? 1 : -1;
-				}).catch(() => {});
-			},
-			onCommentPostTap(post) {
-				// 仅真实后端动态(id 为数字)可评论
-				if (!post || typeof post.id !== 'number') return;
-				uni.showModal({
-					title: '发表评论',
-					editable: true,
-					placeholderText: '写下你的评论…',
-					success: (m) => {
-						if (!m.confirm) return;
-						const content = (m.content || '').trim();
-						if (!content) return;
-						ensureLogin()
-							.then(() => apiCommentAdd({ postId: post.id, content }))
-							.then((res) => {
-								const audited = res && res.data && res.data.status === '1';
-								if (audited === false) {
-									uni.showToast({ title: '评论已提交，待审核', icon: 'none' });
-								} else {
-									post.comments++;
-									uni.showToast({ title: '评论成功', icon: 'none' });
-								}
-							})
-							.catch(() => {});
-					}
+					post.likes = Math.max(0, oldLikes + (liked ? 1 : -1));
+					this.saveLikedSharePost(id, liked);
+				}).catch(() => {
+					post.liked = oldLiked;
+					post.likes = oldLikes;
 				});
+			},
+			saveLikedSharePost(id, liked) {
+				const cache = uni.getStorageSync('likedSharePosts') || {};
+				if (liked) {
+					cache[id] = true;
+				} else {
+					delete cache[id];
+				}
+				uni.setStorageSync('likedSharePosts', cache);
+			},
+			async onCommentPostTap(post) {
+				// 仅真实后端动态(id 为数字)可评论
+				if (!post || typeof post.id !== 'number') {
+					uni.showToast({ title: '这条内容暂不能评论', icon: 'none' });
+					return;
+				}
+				this.activeCommentPost = post;
+				this.commentDraft = '';
+				this.commentList = [];
+				this.showCommentDrawer = true;
+				await this.loadPostComments(post.id);
+			},
+			async loadPostComments(postId) {
+				this.commentLoading = true;
+				try {
+					const res = await apiCommentList({ postId, pageNum: 1, pageSize: 50 });
+					this.commentList = (res && res.rows) || [];
+				} catch (e) {
+					this.commentList = [];
+				} finally {
+					this.commentLoading = false;
+				}
+			},
+			closeCommentDrawer() {
+				this.showCommentDrawer = false;
+				this.activeCommentPost = null;
+				this.commentList = [];
+				this.commentDraft = '';
+				this.commentLoading = false;
+				this.commentSubmitting = false;
+			},
+			async submitComment() {
+				const content = this.commentDraft.trim();
+				if (!this.activeCommentPost || !content || this.commentSubmitting) return;
+				this.commentSubmitting = true;
+				try {
+					await ensureLogin();
+					const res = await apiCommentAdd({ postId: this.activeCommentPost.id, content });
+					const data = (res && res.data) || {};
+					const passed = data.status === '1';
+					if (passed) {
+						const comment = data.comment || {
+							localId: Date.now(),
+							content,
+							createTime: new Date().toISOString(),
+							userNickname: '我',
+							userAvatar: '/static/kitchen_avatar.png'
+						};
+						this.commentList.unshift(comment);
+						this.activeCommentPost.comments = (Number(this.activeCommentPost.comments) || 0) + 1;
+						uni.showToast({ title: '评论成功', icon: 'none' });
+					} else {
+						uni.showToast({ title: '评论已提交，待审核', icon: 'none' });
+					}
+					this.commentDraft = '';
+				} catch (e) {
+					uni.showToast({ title: '评论发送失败', icon: 'none' });
+				} finally {
+					this.commentSubmitting = false;
+				}
 			},
 			onSharePostTap(post) {
 				uni.setClipboardData({
@@ -6456,6 +6710,10 @@
 		color: #6B7280;
 		background: rgba(107,114,128,0.1);
 	}
+	.my-order-status.st-5 {
+		color: #D97706;
+		background: rgba(245,158,11,0.14);
+	}
 	.my-order-body {
 		display: flex;
 		justify-content: space-between;
@@ -6474,5 +6732,297 @@
 	.my-order-time {
 		font-size: 22rpx;
 		color: #9CA3AF;
+	}
+	.my-order-foot {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20rpx;
+	}
+	.my-order-link {
+		font-size: 23rpx;
+		font-weight: 800;
+		color: #35cda4;
+	}
+	.modal-backdrop {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		z-index: 170;
+		background: rgba(16, 24, 22, 0.42);
+	}
+	.detail-sheet {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 180;
+		padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+		border-radius: 34rpx 34rpx 0 0;
+		background: #fbfefd;
+		box-sizing: border-box;
+		box-shadow: 0 -18rpx 52rpx rgba(27, 38, 35, 0.16);
+		overflow: hidden;
+	}
+	.order-detail-sheet {
+		max-height: 78vh;
+	}
+	.comment-sheet {
+		max-height: 72vh;
+	}
+	.detail-sheet-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 20rpx;
+	}
+	.detail-title-col {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6rpx;
+	}
+	.detail-title {
+		font-size: 34rpx;
+		font-weight: 900;
+		color: #202725;
+	}
+	.detail-subtitle {
+		max-width: 560rpx;
+		font-size: 23rpx;
+		color: #8f9794;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.detail-close {
+		width: 58rpx;
+		height: 58rpx;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #eef3f1;
+		color: #56605d;
+		font-size: 38rpx;
+		line-height: 1;
+	}
+	.detail-loading,
+	.detail-empty-line,
+	.comment-empty {
+		min-height: 132rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #8f9794;
+		font-size: 25rpx;
+	}
+	.detail-scroll {
+		max-height: 940rpx;
+	}
+	.detail-status-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 22rpx;
+	}
+	.detail-status {
+		padding: 8rpx 18rpx;
+		border-radius: 20rpx;
+		background: rgba(53, 205, 164, 0.12);
+		color: #18a87f;
+		font-size: 24rpx;
+		font-weight: 900;
+	}
+	.detail-status.st-3,
+	.detail-status.st-4 {
+		color: #75807d;
+		background: #eef2f0;
+	}
+	.detail-status.st-5 {
+		color: #D97706;
+		background: rgba(245, 158, 11, 0.14);
+	}
+	.detail-price {
+		font-size: 30rpx;
+		font-weight: 900;
+		color: #f97316;
+	}
+	.detail-section {
+		padding: 22rpx 0;
+		border-top: 1rpx solid #edf2f0;
+	}
+	.section-title {
+		display: block;
+		margin-bottom: 18rpx;
+		font-size: 27rpx;
+		font-weight: 900;
+		color: #202725;
+	}
+	.order-item-row {
+		display: flex;
+		align-items: center;
+		gap: 18rpx;
+		padding: 14rpx 0;
+	}
+	.order-item-img {
+		width: 96rpx;
+		height: 96rpx;
+		border-radius: 16rpx;
+		background: #eef3f1;
+		flex-shrink: 0;
+	}
+	.order-item-main {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8rpx;
+	}
+	.order-item-name {
+		font-size: 28rpx;
+		font-weight: 900;
+		color: #202725;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.order-item-spec {
+		font-size: 22rpx;
+		color: #98a19e;
+	}
+	.order-item-meta {
+		width: 96rpx;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 8rpx;
+		font-size: 24rpx;
+		font-weight: 800;
+		color: #56605d;
+	}
+	.detail-line {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 18rpx;
+		margin-top: 12rpx;
+		font-size: 25rpx;
+		color: #56605d;
+	}
+	.detail-address {
+		margin-top: 14rpx;
+		padding: 18rpx;
+		border-radius: 18rpx;
+		background: #f4f8f6;
+		font-size: 24rpx;
+		line-height: 1.55;
+		color: #56605d;
+	}
+	.detail-actions {
+		display: flex;
+		gap: 16rpx;
+		margin-top: 20rpx;
+	}
+	.detail-secondary-btn,
+	.detail-primary-btn {
+		height: 72rpx;
+		border-radius: 38rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 27rpx;
+		font-weight: 900;
+		box-sizing: border-box;
+	}
+	.detail-secondary-btn {
+		width: 210rpx;
+		color: #35cda4;
+		border: 2rpx solid rgba(53, 205, 164, 0.66);
+		background: #fbfefd;
+	}
+	.detail-primary-btn {
+		flex: 1;
+		color: #fbfefd;
+		background: #35cda4;
+	}
+	.detail-primary-btn.disabled {
+		background: #ccd6d2;
+		color: #f7fbf9;
+	}
+	.comment-scroll {
+		height: 620rpx;
+	}
+	.comment-row {
+		display: flex;
+		gap: 16rpx;
+		padding: 18rpx 0;
+		border-top: 1rpx solid #edf2f0;
+	}
+	.comment-avatar {
+		width: 58rpx;
+		height: 58rpx;
+		border-radius: 50%;
+		background: #eef3f1;
+		flex-shrink: 0;
+	}
+	.comment-main {
+		flex: 1;
+		min-width: 0;
+	}
+	.comment-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 14rpx;
+		margin-bottom: 8rpx;
+	}
+	.comment-name {
+		font-size: 24rpx;
+		font-weight: 900;
+		color: #202725;
+	}
+	.comment-time {
+		font-size: 21rpx;
+		color: #a0aaa6;
+	}
+	.comment-content {
+		font-size: 26rpx;
+		line-height: 1.48;
+		color: #46504d;
+	}
+	.comment-input-row {
+		display: flex;
+		align-items: center;
+		gap: 14rpx;
+		padding-top: 18rpx;
+		border-top: 1rpx solid #edf2f0;
+	}
+	.comment-input {
+		flex: 1;
+		height: 70rpx;
+		padding: 0 22rpx;
+		border-radius: 36rpx;
+		background: #f4f8f6;
+		font-size: 25rpx;
+		color: #202725;
+		box-sizing: border-box;
+	}
+	.comment-send {
+		width: 118rpx;
+		height: 70rpx;
+		border-radius: 36rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #35cda4;
+		color: #fbfefd;
+		font-size: 25rpx;
+		font-weight: 900;
+	}
+	.comment-send.disabled {
+		background: #ccd6d2;
 	}
 </style>
