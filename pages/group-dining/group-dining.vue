@@ -109,12 +109,22 @@
 			<view class="rooms-empty ordered-empty" v-else>还没有人点菜</view>
 
 			<view class="card-title-row section-title-row"><text>一起加菜</text><text>点击＋加入菜单</text></view>
+			<scroll-view class="category-scroll" scroll-x show-scrollbar="false">
+				<view class="category-list">
+					<view class="category-chip" :class="{ active: activeCategoryId === '' }" @tap="activeCategoryId = ''">全部</view>
+					<view class="category-chip" :class="{ active: String(activeCategoryId) === String(cat.id) }" v-for="cat in categories" :key="cat.id" @tap="activeCategoryId = cat.id">{{ cat.catName }}</view>
+				</view>
+			</scroll-view>
 			<view class="dish-grid">
-				<view class="dish-card" v-for="dish in dishes" :key="dish.id">
+				<view class="dish-card" v-for="dish in filteredDishes" :key="dish.id">
 					<image :src="dish.cover || '/static/onion_chicken.png'" mode="aspectFill"></image>
 					<text class="dish-name">{{ dish.dishName }}</text>
 					<view><text>￥{{ dish.virtualPrice || 0 }}</text><text class="dish-add" @tap="add(dish)">＋</text></view>
 				</view>
+			</view>
+			<view class="room-order-actions">
+				<view class="finish-button" v-if="isOwner" @tap="finishRoom">结束聚餐</view>
+				<view class="order-button" :class="{ disabled: !room.items.length }" @tap="submitGroupOrder">提交聚餐订单</view>
 			</view>
 			<view class="bottom-space"></view>
 		</scroll-view>
@@ -138,9 +148,11 @@
 </template>
 
 <script>
-	import { apiGroupCreate, apiGroupJoin, apiGroupDetail, apiGroupAddItem, apiMyGroupRooms, apiGroupQrCode } from '@/api/social.js'
+	import { apiGroupCreate, apiGroupJoin, apiGroupDetail, apiGroupAddItem, apiMyGroupRooms, apiGroupQrCode, apiGroupFinish } from '@/api/social.js'
 	import { apiDishList } from '@/api/dish.js'
+	import { apiCategoryTree } from '@/api/category.js'
 	import { ensureLogin } from '@/utils/login.js'
+	import { getUserInfo } from '@/utils/auth.js'
 
 	export default {
 		data() {
@@ -150,14 +162,27 @@
 				room: null,
 				myRooms: [],
 				dishes: [],
+				categories: [],
+				activeCategoryId: '',
 				creating: false,
 				qrVisible: false,
 				qrImage: '',
 				settlementVisible: false
 			}
 		},
+		computed: {
+			filteredDishes() {
+				if (this.activeCategoryId === '') return this.dishes
+				return this.dishes.filter(dish => String(dish.categoryId) === String(this.activeCategoryId))
+			},
+			isOwner() {
+				const user = getUserInfo() || {}
+				return !!this.room && String(this.room.ownerUserId) === String(user.id || user.userId)
+			}
+		},
 		onLoad(options = {}) {
 			this.loadDishes()
+			this.loadCategories()
 			this.loadRooms()
 			if (options.code) {
 				this.joinCode = String(options.code).toUpperCase()
@@ -175,6 +200,13 @@
 			}
 		},
 		methods: {
+			async loadCategories() {
+				try {
+					const res = await apiCategoryTree()
+					const flatten = rows => (rows || []).reduce((all, item) => all.concat(item, flatten(item.children)), [])
+					this.categories = flatten((res && res.data) || [])
+				} catch (e) {}
+			},
 			async loadRooms() {
 				try {
 					await ensureLogin()
@@ -256,9 +288,34 @@
 				} catch (e) {}
 			},
 			async randomDish() {
-				if (!this.dishes.length) return
-				const dish = this.dishes[Math.floor(Math.random() * this.dishes.length)]
+				if (!this.filteredDishes.length) return
+				const dish = this.filteredDishes[Math.floor(Math.random() * this.filteredDishes.length)]
 				await this.add(dish)
+			},
+			submitGroupOrder() {
+				if (!this.room || !this.room.items.length) {
+					uni.showToast({ title: '请先选择菜品', icon: 'none' })
+					return
+				}
+				const items = encodeURIComponent(JSON.stringify(this.room.items.map(item => ({ dishId: item.dishId, quantity: item.quantity }))))
+				uni.navigateTo({ url: `/pages/submit-order/submit-order?groupRoomId=${this.room.id}&items=${items}` })
+			},
+			finishRoom() {
+				if (!this.room || !this.isOwner) return
+				uni.showModal({
+					title: '结束聚餐',
+					content: '结束后成员不能继续点菜或下单，历史订单仍会保留。',
+					confirmText: '确认结束',
+					success: async res => {
+						if (!res.confirm) return
+						try {
+							await apiGroupFinish(this.room.id)
+							this.room = null
+							await this.loadRooms()
+							uni.showToast({ title: '聚餐已结束', icon: 'success' })
+						} catch (e) {}
+					}
+				})
 			},
 			async showQrCode() {
 				try {
@@ -392,5 +449,14 @@
 	.modal-button { width: 100%; height: 72rpx; margin-top: 24rpx; display: flex; align-items: center; justify-content: center; border-radius: 37rpx; background: #35cda4; color: #fff; font-weight: 900; }
 	.settlement-total { width: 100%; margin-top: 25rpx; padding: 24rpx; display: flex; align-items: center; justify-content: space-between; border-radius: 18rpx; background: #f4f7f6; box-sizing: border-box; }
 	.settlement-total .settlement-value { color: #172e28; font-size: 31rpx; font-weight: 800; }
+	.category-scroll { width: 750rpx; margin-bottom: 18rpx; white-space: nowrap; }
+	.category-list { padding: 0 24rpx; display: inline-flex; gap: 14rpx; }
+	.category-chip { height: 58rpx; padding: 0 26rpx; display: flex; align-items: center; border-radius: 30rpx; background: #eaf2ef; color: #64726d; font-size: 24rpx; font-weight: 800; }
+	.category-chip.active { background: #30cda3; color: #f8fffc; }
+	.room-order-actions { margin: 28rpx 24rpx 0; display: flex; gap: 16rpx; }
+	.finish-button, .order-button { height: 82rpx; display: flex; align-items: center; justify-content: center; border-radius: 42rpx; font-size: 27rpx; font-weight: 900; }
+	.finish-button { width: 210rpx; border: 2rpx solid #cbd7d3; color: #63716c; }
+	.order-button { flex: 1; background: #30cda3; color: #f8fffc; }
+	.order-button.disabled { opacity: .45; }
 	.mint-box { background: #eafaf5; color: #20b98f; }
 </style>

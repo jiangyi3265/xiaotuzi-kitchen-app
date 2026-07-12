@@ -25,7 +25,7 @@
 
 		<scroll-view class="submit-content" scroll-y>
 			<view class="submit-card selected-card">
-				<text class="card-title">已选</text>
+				<view class="selected-head"><text class="card-title">已选</text><text class="social-tag" v-if="groupRoomId">多人聚餐订单</text><text class="social-tag couple" v-else-if="coupleOrder">{{ remoteFeed ? '异地投喂' : '情侣共同订单' }}</text></view>
 				<view class="selected-list">
 					<view class="selected-row" v-for="dish in displaySelectedDishes" :key="dish.id">
 						<image class="selected-img" :src="dish.image" mode="aspectFill"></image>
@@ -37,6 +37,8 @@
 
 			<view class="submit-card service-card">
 				<text class="card-title">用餐安排</text>
+				<view class="region-status-row"><view><text class="region-status-title">当前区域服务</text><text class="region-status-desc">{{ regionOpened ? '同城配送与厨师代炒已开通' : '未开通，可申请区域代理' }}</text></view><text :class="regionOpened?'opened':'closed'">{{regionOpened?'已开通':'未开通'}}</text></view>
+				<scroll-view class="opened-region-scroll" scroll-x show-scrollbar="false" v-if="openedRegions.length"><view class="opened-region-list"><text>已开通区域</text><text v-for="item in openedRegions" :key="item.id">{{item.province}}{{item.city}}{{item.district}}</text></view></scroll-view>
 				<view class="service-row">
 					<text class="service-label">用餐类型</text>
 					<scroll-view class="service-options" scroll-x show-scrollbar="false">
@@ -229,7 +231,7 @@
 	import { apiShopInfo } from '@/api/shop.js'
 	import { apiDishDetail } from '@/api/dish.js'
 	import { ensureLogin } from '@/utils/login.js'
-	import { apiRegionStatus, apiRegionApply } from '@/api/region.js'
+	import { apiRegionStatus, apiRegionApply, apiOpenedRegions } from '@/api/region.js'
 
 	export default {
 		data() {
@@ -262,6 +264,10 @@
 				shareEnabled: true,
 				basketEnabled: false,
 				regionOpened: false,
+				openedRegions: [],
+				groupRoomId: null,
+				coupleOrder: false,
+				remoteFeed: false,
 				regionApplication: null,
 				showRegionApply: false,
 				regionSubmitting: false,
@@ -289,6 +295,9 @@
 			}
 		},
 		onLoad(options = {}) {
+			this.groupRoomId = /^\d+$/.test(String(options.groupRoomId || '')) ? Number(options.groupRoomId) : null;
+			this.coupleOrder = String(options.coupleOrder || '') === '1';
+			this.remoteFeed = String(options.remote || '') === '1';
 			const count = Number(options.count || 1);
 			this.selectedCount = Number.isFinite(count) && count > 0 ? count : 1;
 			this.selectedName = options.name ? decodeURIComponent(options.name) : '菜品';
@@ -326,8 +335,12 @@
 			this.loadStoreInfo();
 			this.loadSelectedDishes();
 			this.loadRegionStatus();
+			this.loadOpenedRegions();
 		},
 		methods: {
+			async loadOpenedRegions() {
+				try { const res=await apiOpenedRegions(); this.openedRegions=(res&&res.data)||[]; } catch(e) {}
+			},
 			async loadRegionStatus() {
 				const saved=uni.getStorageSync('currentRegion')||{};
 				this.regionForm={...this.regionForm,...saved};
@@ -469,7 +482,9 @@
 					remarkParts.push(`用餐类型：${this.selectedService}`);
 					const payload = {
 						serviceType: this.serviceTypeCode,
-						remoteFeed: uni.getStorageSync('coupleRemoteFeed') === '1' ? '1' : '0',
+						groupRoomId: this.groupRoomId,
+						coupleOrder: this.coupleOrder ? '1' : '0',
+						remoteFeed: this.remoteFeed || uni.getStorageSync('coupleRemoteFeed') === '1' ? '1' : '0',
 						chefId,
 						receiverName: this.needDelivery ? this.deliveryName.trim() : '',
 						receiverPhone: this.needDelivery ? this.deliveryPhone.trim() : '',
@@ -636,6 +651,20 @@
 		font-weight: 900;
 		color: #202725;
 	}
+	.selected-head { display:flex; align-items:center; justify-content:space-between; }
+	.social-tag { padding:9rpx 16rpx; border-radius:22rpx; background:#e7f8f2; color:#28b990; font-size:21rpx; font-weight:800; }
+	.social-tag.couple { background:#fff0f2; color:#cf667c; }
+	.region-status-row { margin-top:24rpx; padding:20rpx; display:flex; align-items:center; justify-content:space-between; border-radius:18rpx; background:#f3f7f5; }
+	.region-status-row>view { display:flex; flex-direction:column; }
+	.region-status-title { font-size:26rpx; font-weight:900; }
+	.region-status-desc { margin-top:7rpx; color:#84908c; font-size:21rpx; }
+	.region-status-row>text { padding:8rpx 14rpx; border-radius:18rpx; font-size:21rpx; font-weight:900; }
+	.region-status-row .opened { background:#e4f8f0; color:#24ad86; }
+	.region-status-row .closed { background:#fff0eb; color:#d7765e; }
+	.opened-region-scroll { margin-top:14rpx; white-space:nowrap; }
+	.opened-region-list { display:inline-flex; align-items:center; gap:10rpx; }
+	.opened-region-list text { padding:8rpx 13rpx; border-radius:17rpx; background:#eef4f2; color:#687570; font-size:20rpx; }
+	.opened-region-list text:first-child { padding-left:0; background:transparent; color:#8b9692; }
 
 	.selected-list {
 		margin-top: 26rpx;
