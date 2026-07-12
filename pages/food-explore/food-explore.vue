@@ -111,6 +111,9 @@
 		onLoad() {
 			this.loadExplore();
 		},
+		onShow() {
+			this.syncCartState();
+		},
 		computed: {
 			filteredItems() {
 				if (this.selectedFilter === 'steps') {
@@ -141,18 +144,33 @@
 				const ids = uni.getStorageSync('selectedDishIds');
 				return Array.isArray(ids) ? ids : [];
 			},
+			getSelectedDishQuantities() {
+				const quantities = uni.getStorageSync('selectedDishQuantities');
+				return quantities && typeof quantities === 'object' ? quantities : {};
+			},
 			isDishSelected(id) {
 				return this.getSelectedDishIds().some(item => String(item) === String(id));
 			},
+			syncCartState() {
+				this.exploreItems = this.exploreItems.map(item => ({
+					...item,
+					cartCount: this.isDishSelected(item.id) ? 1 : 0
+				}));
+			},
 			toggleStoredDish(id) {
 				const ids = this.getSelectedDishIds();
+				const quantities = this.getSelectedDishQuantities();
+				const key = String(id);
 				const idx = ids.findIndex(item => String(item) === String(id));
 				if (idx > -1) {
 					ids.splice(idx, 1);
+					delete quantities[key];
 				} else {
 					ids.push(id);
+					quantities[key] = quantities[key] || 1;
 				}
 				uni.setStorageSync('selectedDishIds', ids);
+				uni.setStorageSync('selectedDishQuantities', quantities);
 				return idx === -1;
 			},
 			onBackTap() {

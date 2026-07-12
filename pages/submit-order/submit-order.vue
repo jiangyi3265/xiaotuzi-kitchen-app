@@ -7,23 +7,31 @@
 					<image class="back-icon" src="/static/back_green.svg" mode="aspectFit"></image>
 				</view>
 				<text class="submit-title">提交订单</text>
+				<view class="submit-capsule">
+					<view class="capsule-dots">
+						<view class="dot"></view>
+						<view class="dot"></view>
+						<view class="dot"></view>
+					</view>
+					<view class="capsule-divider"></view>
+					<view class="capsule-minus"></view>
+					<view class="capsule-divider"></view>
+					<view class="capsule-circle">
+						<view class="circle-inner"></view>
+					</view>
+				</view>
 			</view>
 		</view>
 
-		<view class="submit-content">
+		<scroll-view class="submit-content" scroll-y>
 			<view class="submit-card selected-card">
 				<text class="card-title">已选</text>
-				<view class="selected-list" v-if="selectedDishes.length > 0">
-					<view class="selected-row" v-for="dish in selectedDishes" :key="dish.id">
+				<view class="selected-list">
+					<view class="selected-row" v-for="dish in displaySelectedDishes" :key="dish.id">
 						<image class="selected-img" :src="dish.image" mode="aspectFill"></image>
 						<text class="selected-name">{{ dish.name }}</text>
 						<text class="selected-count">x {{ dish.quantity }}</text>
 					</view>
-				</view>
-				<view class="selected-row" v-else>
-					<image class="selected-img" :src="selectedImage" mode="aspectFill"></image>
-					<text class="selected-name">{{ selectedName }}</text>
-					<text class="selected-count">x {{ selectedCount }}</text>
 				</view>
 			</view>
 
@@ -31,34 +39,33 @@
 				<text class="card-title">用餐安排</text>
 				<view class="service-row">
 					<text class="service-label">用餐类型</text>
-					<view class="service-options">
-						<view
-							class="service-chip"
-							:class="{ active: selectedService === item }"
-							v-for="item in serviceTypes"
-							:key="item"
-							@tap="selectService(item)"
-						>
-							<text>{{ item }}</text>
+					<scroll-view class="service-options" scroll-x show-scrollbar="false">
+						<view class="service-chip-list">
+							<view
+								class="service-chip"
+								:class="{ active: selectedService === item.value, unavailable: item.regionRequired && !regionOpened }"
+								v-for="item in serviceTypes"
+								:key="item.value"
+								@tap="selectService(item.value)"
+							>
+								<text class="service-dot">{{ item.icon }}</text>
+								<text>{{ item.label }}</text>
+								<text class="service-unavailable" v-if="item.regionRequired && !regionOpened">未开通</text>
+							</view>
 						</view>
-					</view>
+					</scroll-view>
 				</view>
+
 				<view class="chef-section" v-if="selectedService === '同城配送' && deliveryStaff.length">
 					<view class="chef-section-head">
-						<text class="chef-section-title">选择配送员</text>
+						<text class="chef-section-title">配送员</text>
 						<text class="chef-section-count">可不指定</text>
 					</view>
 					<view class="chef-list">
-						<view
-							class="chef-row"
-							:class="{ active: selectedDeliveryId === '' }"
-							@tap="selectDelivery('')"
-						>
-							<view class="chef-info">
-								<view class="chef-name-line">
-									<text class="chef-name">不指定配送员</text>
-								</view>
-								<text class="chef-desc">由商家统一安排配送</text>
+						<view class="chef-row" :class="{ active: selectedDeliveryId === '' }" @tap="selectDelivery('')">
+							<view class="chef-info no-avatar">
+								<text class="chef-name">商家安排</text>
+								<text class="chef-desc">由平台或商家统一分配配送员</text>
 							</view>
 							<view class="chef-check">
 								<text v-if="selectedDeliveryId === ''">✓</text>
@@ -75,11 +82,11 @@
 							<view class="chef-info">
 								<view class="chef-name-line">
 									<text class="chef-name">{{ staff.name }}</text>
-									<view class="chef-tag">
+									<view class="chef-tag" v-if="staff.tag">
 										<text>{{ staff.tag }}</text>
 									</view>
 								</view>
-								<text class="chef-desc">{{ staff.desc }}</text>
+								<text class="chef-desc">{{ staff.desc || '配送服务' }}</text>
 							</view>
 							<view class="chef-side">
 								<text class="chef-price">{{ staff.fee }}</text>
@@ -91,6 +98,7 @@
 						</view>
 					</view>
 				</view>
+
 				<view class="chef-section" v-if="selectedService === '厨师代炒'">
 					<view class="chef-section-head">
 						<text class="chef-section-title">选择厨师</text>
@@ -108,11 +116,11 @@
 							<view class="chef-info">
 								<view class="chef-name-line">
 									<text class="chef-name">{{ chef.name }}</text>
-									<view class="chef-tag">
+									<view class="chef-tag" v-if="chef.tag">
 										<text>{{ chef.tag }}</text>
 									</view>
 								</view>
-								<text class="chef-desc">{{ chef.desc }}</text>
+								<text class="chef-desc">{{ chef.desc || '厨师代炒服务' }}</text>
 							</view>
 							<view class="chef-side">
 								<text class="chef-price">{{ chef.price }}</text>
@@ -124,56 +132,38 @@
 						</view>
 					</view>
 				</view>
+
 				<view class="delivery-section" v-if="needDelivery">
 					<text class="delivery-section-title">{{ selectedService === '厨师代炒' ? '送货地址' : '收货信息' }}</text>
 					<view class="delivery-row">
 						<text class="delivery-label">姓名</text>
-						<input
-							class="delivery-input"
-							v-model="deliveryName"
-							placeholder="收货人姓名"
-							placeholder-class="delivery-placeholder"
-							maxlength="20"
-						/>
+						<input class="delivery-input" v-model="deliveryName" placeholder="收货人姓名" placeholder-class="delivery-placeholder" maxlength="20" />
 					</view>
 					<view class="delivery-row">
 						<text class="delivery-label">手机号</text>
-						<input
-							class="delivery-input"
-							v-model="deliveryPhone"
-							type="number"
-							placeholder="收货人手机号"
-							placeholder-class="delivery-placeholder"
-							maxlength="11"
-						/>
+						<input class="delivery-input" v-model="deliveryPhone" type="number" placeholder="收货人手机号" placeholder-class="delivery-placeholder" maxlength="11" />
 					</view>
 					<view class="delivery-row">
 						<text class="delivery-label">地址</text>
-						<input
-							class="delivery-input"
-							v-model="deliveryAddress"
-							placeholder="详细收货地址"
-							placeholder-class="delivery-placeholder"
-							maxlength="60"
-						/>
+						<input class="delivery-input" v-model="deliveryAddress" placeholder="详细收货地址" placeholder-class="delivery-placeholder" maxlength="60" />
 					</view>
 				</view>
-				<view class="pickup-section" v-if="selectedService === '店内自提'">
+
+				<view class="pickup-section" v-if="selectedService === '附近的菜市场'">
 					<view class="pickup-head">
-						<text class="pickup-title">自提地址</text>
-						<view class="pickup-copy" @tap="copyStoreAddress">
-							<text>复制</text>
+						<text class="pickup-title">附近的菜市场</text>
+						<view class="pickup-copy" @tap="copyStoreAddress" v-if="storeInfo.address">
+							<text>复制地址</text>
 						</view>
 					</view>
-					<view class="pickup-box" v-if="storeInfo.name || storeInfo.address">
-						<text class="pickup-store-name" v-if="storeInfo.name">{{ storeInfo.name }}</text>
-						<text class="pickup-store-address" v-if="storeInfo.address">{{ storeInfo.address }}</text>
+					<view class="pickup-box">
+						<text class="pickup-store-name">{{ storeInfo.name || '我的厨房' }}</text>
+						<text class="pickup-store-address">{{ storeInfo.address || '商家暂未配置门店地址' }}</text>
 						<view class="pickup-meta">
 							<text class="pickup-meta-item" v-if="storeInfo.hours">营业时间 {{ storeInfo.hours }}</text>
 							<text class="pickup-meta-item" v-if="storeInfo.phone">电话 {{ storeInfo.phone }}</text>
 						</view>
 					</view>
-					<text class="pickup-tip">门店地址由商家在后台设置</text>
 				</view>
 			</view>
 
@@ -182,23 +172,49 @@
 				<textarea
 					class="remark-input"
 					v-model="remark"
-					placeholder="有什么口味偏好或特殊要求吗？"
+					placeholder="有什么口味偏好或特殊要求吗?"
 					placeholder-class="remark-placeholder"
 					maxlength="120"
 				/>
 			</view>
 
-			<view class="submit-card share-card">
-				<view class="share-copy">
-					<text class="card-title">分享到“分享广场”</text>
-					<text class="share-desc">做完菜后公开成品，大家都能看到你的美食</text>
+			<view class="submit-card toggle-card">
+				<view class="toggle-row">
+					<view class="toggle-copy">
+						<text class="toggle-title">分享到“餐桌妙想”</text>
+						<text class="toggle-desc">公开后其他小伙伴也能看到你的美食搭配</text>
+					</view>
+					<switch :checked="shareEnabled" color="#35cda4" @change="shareEnabled = $event.detail.value" />
 				</view>
-				<switch :checked="shareEnabled" color="#35cda4" @change="shareEnabled = $event.detail.value" />
+				<view class="toggle-divider"></view>
+				<view class="toggle-row">
+					<view class="toggle-copy">
+						<text class="toggle-title">加入厨房菜篮</text>
+						<text class="toggle-desc">下单后保留已选菜品，方便继续采购</text>
+					</view>
+					<switch :checked="basketEnabled" color="#35cda4" @change="basketEnabled = $event.detail.value" />
+				</view>
 			</view>
+		</scroll-view>
+
+		<view class="region-mask" v-if="showRegionApply" @tap="showRegionApply=false"></view>
+		<view class="region-sheet" v-if="showRegionApply">
+			<view class="region-sheet-head"><text class="region-sheet-title">申请该区域代理</text><text class="region-close" @tap="showRegionApply=false">×</text></view>
+			<text class="region-tip">当前区域尚未开通同城配送和厨师代炒，提交后由平台审核。</text>
+			<input class="region-input" v-model="regionForm.applicantName" placeholder="申请人姓名" />
+			<input class="region-input" v-model="regionForm.phone" type="number" maxlength="11" placeholder="联系电话" />
+			<view class="region-line">
+				<input class="region-input region-third" v-model="regionForm.province" placeholder="省" />
+				<input class="region-input region-third" v-model="regionForm.city" placeholder="市" />
+				<input class="region-input region-third" v-model="regionForm.district" placeholder="区/县" />
+			</view>
+			<input class="region-input" v-model="regionForm.address" placeholder="详细地址" />
+			<textarea class="region-textarea" v-model="regionForm.experience" maxlength="300" placeholder="相关经验或申请说明"></textarea>
+			<view class="region-submit" :class="{disabled:regionSubmitting}" @tap="submitRegionApplication">提交审核</view>
 		</view>
 
 		<view class="submit-bottom-bar">
-			<text class="total-text">共 {{ selectedCount }} 件</text>
+			<text class="total-text">共 {{ totalDishCount }} 道</text>
 			<view class="submit-btn" @tap="submitOrder">
 				<text>提交订单</text>
 			</view>
@@ -213,28 +229,29 @@
 	import { apiShopInfo } from '@/api/shop.js'
 	import { apiDishDetail } from '@/api/dish.js'
 	import { ensureLogin } from '@/utils/login.js'
+	import { apiRegionStatus, apiRegionApply } from '@/api/region.js'
 
 	export default {
 		data() {
 			return {
 				selectedCount: 1,
-				selectedName: '炖猪脚',
+				selectedName: '菜品',
 				selectedImage: '/static/onion_chicken.png',
-				// 参与后端下单的菜品明细（来自首页传入的真实菜品 id）
 				orderItems: [],
 				selectedDishes: [],
-				serviceTypes: ['同城配送', '厨师代炒', '店内自提'],
-				selectedService: '同城配送',
-				// 厨师：onLoad 由 loadChefs 从后端填充
+				serviceTypes: [
+					{ label: '附近的菜市场', value: '附近的菜市场', icon: '菜' },
+					{ label: '同城配送', value: '同城配送', icon: '送', regionRequired: true },
+					{ label: '厨师代炒', value: '厨师代炒', icon: '厨', regionRequired: true }
+				],
+				selectedService: '附近的菜市场',
 				selectedChefId: '',
 				chefList: [],
-				// 配送员：onLoad 由 loadRiders 从后端填充，为空则不显示、下单不带 riderId
 				selectedDeliveryId: '',
 				deliveryStaff: [],
 				deliveryName: '',
 				deliveryPhone: '',
 				deliveryAddress: '',
-				// 门店信息：onLoad 由 loadStoreInfo 从后端填充
 				storeInfo: {
 					name: '',
 					address: '',
@@ -242,7 +259,13 @@
 					phone: ''
 				},
 				remark: '',
-				shareEnabled: false
+				shareEnabled: true,
+				basketEnabled: false,
+				regionOpened: false,
+				regionApplication: null,
+				showRegionApply: false,
+				regionSubmitting: false,
+				regionForm: { applicantName:'', phone:'', province:'', city:'', district:'', address:'', experience:'' }
 			}
 		},
 		computed: {
@@ -250,29 +273,72 @@
 				return this.selectedService === '同城配送' || this.selectedService === '厨师代炒';
 			},
 			serviceTypeCode() {
-				return { '同城配送': '0', '厨师代炒': '1', '店内自提': '2' }[this.selectedService] || '0';
+				return { '同城配送': '0', '厨师代炒': '1', '附近的菜市场': '2' }[this.selectedService] || '2';
+			},
+			displaySelectedDishes() {
+				if (this.selectedDishes.length) return this.selectedDishes;
+				return [{
+					id: 'fallback',
+					name: this.selectedName,
+					image: this.selectedImage,
+					quantity: this.selectedCount
+				}];
+			},
+			totalDishCount() {
+				return this.displaySelectedDishes.reduce((sum, dish) => sum + (Number(dish.quantity) || 1), 0);
 			}
 		},
-		onLoad(options) {
+		onLoad(options = {}) {
 			const count = Number(options.count || 1);
 			this.selectedCount = Number.isFinite(count) && count > 0 ? count : 1;
-			this.selectedName = options.name ? decodeURIComponent(options.name) : '炖猪脚';
+			this.selectedName = options.name ? decodeURIComponent(options.name) : '菜品';
 			this.selectedImage = options.image ? decodeURIComponent(options.image) : '/static/onion_chicken.png';
 
-			// 解析首页传入的菜品 id（仅真实后端数字 id 参与下单）
-			if (options.ids) {
+			if (options.items) {
+				try {
+					const parsed = JSON.parse(decodeURIComponent(options.items));
+					this.orderItems = Array.isArray(parsed)
+						? parsed
+							.filter(item => item && /^\d+$/.test(String(item.dishId)))
+							.map(item => ({
+								dishId: Number(item.dishId),
+								quantity: Math.max(1, Math.min(Number(item.quantity) || 1, 99))
+							}))
+						: [];
+				} catch (e) {
+					this.orderItems = [];
+				}
+			}
+
+			if (!this.orderItems.length && options.ids) {
+				const quantities = uni.getStorageSync('selectedDishQuantities') || {};
 				this.orderItems = String(options.ids)
 					.split(',')
 					.filter(id => /^\d+$/.test(id))
-					.map(id => ({ dishId: Number(id), quantity: 1 }));
+					.map(id => ({
+						dishId: Number(id),
+						quantity: Math.max(1, Math.min(Number(quantities[id]) || 1, 99))
+					}));
 			}
 
 			this.loadChefs();
 			this.loadRiders();
 			this.loadStoreInfo();
 			this.loadSelectedDishes();
+			this.loadRegionStatus();
 		},
 		methods: {
+			async loadRegionStatus() {
+				const saved=uni.getStorageSync('currentRegion')||{};
+				this.regionForm={...this.regionForm,...saved};
+				try { const res=await apiRegionStatus({province:this.regionForm.province,city:this.regionForm.city,district:this.regionForm.district}); const data=(res&&res.data)||{}; this.regionOpened=!!data.opened; this.regionApplication=data.application||null; } catch(e) {}
+			},
+			async submitRegionApplication() {
+				if(this.regionSubmitting)return;
+				const f=this.regionForm;
+				if(!f.applicantName.trim()||!/^1\d{10}$/.test(f.phone)||!f.province.trim()||!f.city.trim()||!f.district.trim()){uni.showToast({title:'请完整填写姓名、手机号和区域',icon:'none'});return;}
+				try { this.regionSubmitting=true; await ensureLogin(); await apiRegionApply(f); uni.setStorageSync('currentRegion',{province:f.province,city:f.city,district:f.district,address:f.address}); this.showRegionApply=false; await this.loadRegionStatus(); uni.showToast({title:'申请已提交，等待审核',icon:'none'}); } catch(e) {} finally { this.regionSubmitting=false; }
+			},
 			async loadSelectedDishes() {
 				if (!this.orderItems.length) {
 					this.selectedDishes = [];
@@ -336,10 +402,10 @@
 					const shop = res && res.data;
 					if (shop) {
 						this.storeInfo = {
-							name: shop.storeName || '',
-							address: shop.storeAddress || '',
+							name: shop.storeName || shop.shopName || '',
+							address: shop.storeAddress || shop.address || '',
 							hours: shop.businessHours || '',
-							phone: shop.storePhone || ''
+							phone: shop.storePhone || shop.phone || ''
 						};
 					}
 				} catch (e) {}
@@ -347,9 +413,13 @@
 			goBack() {
 				uni.navigateBack();
 			},
-			selectService(item) {
-				this.selectedService = item;
-				if (item === '厨师代炒' && !this.selectedChefId && this.chefList.length > 0) {
+			selectService(value) {
+				if ((value === '同城配送' || value === '厨师代炒') && !this.regionOpened) {
+					if (this.regionApplication && this.regionApplication.auditStatus === '0') { uni.showToast({ title:'该区域申请正在审核中', icon:'none' }); return; }
+					this.showRegionApply=true; return;
+				}
+				this.selectedService = value;
+				if (value === '厨师代炒' && !this.selectedChefId && this.chefList.length > 0) {
 					this.selectedChefId = this.chefList[0].id;
 				}
 			},
@@ -361,8 +431,9 @@
 				this.selectedDeliveryId = id;
 			},
 			copyStoreAddress() {
+				if (!this.storeInfo.address) return;
 				uni.setClipboardData({
-					data: `${this.storeInfo.name} ${this.storeInfo.address}`,
+					data: `${this.storeInfo.name} ${this.storeInfo.address}`.trim(),
 					success: () => {
 						uni.showToast({ title: '地址已复制', icon: 'none' });
 					}
@@ -384,7 +455,6 @@
 					}
 				}
 
-				// 无真实后端菜品，无法下单
 				if (!this.orderItems.length) {
 					uni.showToast({ title: '没有可下单的菜品', icon: 'none' });
 					return;
@@ -394,28 +464,33 @@
 					await ensureLogin();
 					const chefId = (this.selectedService === '厨师代炒' && /^\d+$/.test(String(this.selectedChefId)))
 						? this.selectedChefId : null;
+					const remarkParts = [];
+					if (this.remark.trim()) remarkParts.push(this.remark.trim());
+					remarkParts.push(`用餐类型：${this.selectedService}`);
 					const payload = {
 						serviceType: this.serviceTypeCode,
+						remoteFeed: uni.getStorageSync('coupleRemoteFeed') === '1' ? '1' : '0',
 						chefId,
 						receiverName: this.needDelivery ? this.deliveryName.trim() : '',
 						receiverPhone: this.needDelivery ? this.deliveryPhone.trim() : '',
 						receiverAddress: this.needDelivery ? this.deliveryAddress.trim() : '',
-						remark: this.remark,
+						remark: remarkParts.join('\n'),
 						shareFlag: this.shareEnabled ? '1' : '0',
 						items: this.orderItems
 					};
-					// 同城配送且指定了真实配送员时带上 riderId（数字）
 					if (this.selectedService === '同城配送' && /^\d+$/.test(String(this.selectedDeliveryId))) {
 						payload.riderId = Number(this.selectedDeliveryId);
 					}
 					await apiSubmitOrder(payload);
-					uni.removeStorageSync('selectedDishIds');
+					uni.removeStorageSync('coupleRemoteFeed');
+					if (!this.basketEnabled) {
+						uni.removeStorageSync('selectedDishIds');
+						uni.removeStorageSync('selectedDishQuantities');
+					}
 					uni.setStorageSync('afterSubmitGoOrder', '1');
 					uni.showToast({ title: '下单成功', icon: 'success' });
-					setTimeout(() => uni.navigateBack(), 1200);
-				} catch (e) {
-					// 错误提示已由请求层统一弹出
-				}
+					setTimeout(() => uni.navigateBack(), 900);
+				} catch (e) {}
 			}
 		}
 	}
@@ -423,12 +498,12 @@
 
 <style>
 	.submit-page {
-		min-height: 100vh;
 		width: 750rpx;
+		min-height: 100vh;
 		background:
 			radial-gradient(circle at 12% 4%, rgba(61, 213, 177, 0.18) 0 92rpx, transparent 93rpx),
 			linear-gradient(180deg, #eafaf6 0, #f8fbfa 300rpx, #f8fbfa 100%);
-		padding-bottom: calc(142rpx + env(safe-area-inset-bottom));
+		padding-bottom: calc(128rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 		color: #202725;
 		font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
@@ -436,7 +511,7 @@
 
 	.submit-header {
 		width: 750rpx;
-		height: 210rpx;
+		height: 150rpx;
 		box-sizing: border-box;
 	}
 
@@ -445,7 +520,7 @@
 	}
 
 	.submit-nav {
-		height: 118rpx;
+		height: 104rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -454,20 +529,20 @@
 
 	.nav-back {
 		position: absolute;
-		left: 24rpx;
-		top: 24rpx;
-		width: 74rpx;
-		height: 74rpx;
+		left: 22rpx;
+		top: 22rpx;
+		width: 64rpx;
+		height: 64rpx;
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: rgba(251, 254, 253, 0.82);
+		background: rgba(251, 254, 253, 0.86);
 	}
 
 	.back-icon {
-		width: 42rpx;
-		height: 42rpx;
+		width: 40rpx;
+		height: 40rpx;
 	}
 
 	.submit-title {
@@ -477,13 +552,75 @@
 		color: #1b2428;
 	}
 
+	.submit-capsule {
+		position: absolute;
+		right: 24rpx;
+		top: 20rpx;
+		width: 204rpx;
+		height: 64rpx;
+		border-radius: 34rpx;
+		background: rgba(251, 254, 253, 0.78);
+		border: 1rpx solid rgba(34, 46, 43, 0.08);
+		display: flex;
+		align-items: center;
+		justify-content: space-around;
+		padding: 0 18rpx;
+		box-sizing: border-box;
+	}
+
+	.capsule-dots {
+		width: 42rpx;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.dot {
+		width: 9rpx;
+		height: 9rpx;
+		border-radius: 50%;
+		background: #17201d;
+	}
+
+	.capsule-divider {
+		width: 1rpx;
+		height: 36rpx;
+		background: rgba(23, 32, 29, 0.12);
+	}
+
+	.capsule-minus {
+		width: 28rpx;
+		height: 5rpx;
+		border-radius: 4rpx;
+		background: #17201d;
+	}
+
+	.capsule-circle {
+		width: 36rpx;
+		height: 36rpx;
+		border-radius: 50%;
+		border: 6rpx solid #17201d;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+	}
+
+	.circle-inner {
+		width: 10rpx;
+		height: 10rpx;
+		border-radius: 50%;
+		background: #17201d;
+	}
+
 	.submit-content {
-		padding: 0 24rpx;
+		height: calc(100vh - 278rpx - env(safe-area-inset-bottom));
+		padding: 0 18rpx 28rpx;
 		box-sizing: border-box;
 	}
 
 	.submit-card {
-		width: 702rpx;
+		width: 714rpx;
 		margin-bottom: 22rpx;
 		padding: 28rpx 28rpx;
 		border-radius: 28rpx;
@@ -501,44 +638,28 @@
 	}
 
 	.selected-list {
-		margin-top: 24rpx;
+		margin-top: 26rpx;
 		display: flex;
 		flex-direction: column;
-		gap: 16rpx;
+		gap: 18rpx;
 	}
 
 	.selected-row {
-		height: 148rpx;
-		margin-top: 28rpx;
+		min-height: 128rpx;
 		display: flex;
 		align-items: center;
 	}
 
-	.selected-list .selected-row {
-		height: 118rpx;
-		margin-top: 0;
-		padding: 12rpx 14rpx;
-		border-radius: 20rpx;
-		background: #f7fbf9;
-		box-sizing: border-box;
-	}
-
 	.selected-img {
-		width: 128rpx;
-		height: 128rpx;
+		width: 132rpx;
+		height: 132rpx;
 		border-radius: 16rpx;
 		background: #f0f3f2;
 		flex-shrink: 0;
 	}
 
-	.selected-list .selected-img {
-		width: 92rpx;
-		height: 92rpx;
-		border-radius: 14rpx;
-	}
-
 	.selected-name {
-		margin-left: 30rpx;
+		margin-left: 26rpx;
 		font-size: 32rpx;
 		line-height: 1;
 		font-weight: 800;
@@ -548,11 +669,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	.selected-list .selected-name {
-		font-size: 28rpx;
-		margin-left: 22rpx;
 	}
 
 	.selected-count {
@@ -577,21 +693,27 @@
 	}
 
 	.service-options {
+		flex: 1;
+		min-width: 0;
+		height: 62rpx;
 		margin-left: 22rpx;
-		display: flex;
+		white-space: nowrap;
+	}
+
+	.service-chip-list {
+		height: 62rpx;
+		display: inline-flex;
 		align-items: center;
 		gap: 14rpx;
-		flex: 1;
-		overflow-x: auto;
-		white-space: nowrap;
 	}
 
 	.service-chip {
 		height: 58rpx;
-		padding: 0 24rpx;
-		display: flex;
+		padding: 0 22rpx;
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		gap: 10rpx;
 		border-radius: 30rpx;
 		background: #f3f6f5;
 		font-size: 26rpx;
@@ -608,21 +730,31 @@
 		box-shadow: 0 8rpx 18rpx rgba(53, 205, 164, 0.18);
 	}
 
-	.delivery-section {
+	.service-dot {
+		font-size: 20rpx;
+	}
+
+	.delivery-section,
+	.chef-section,
+	.pickup-section {
 		margin-top: 26rpx;
 		padding-top: 24rpx;
 		border-top: 1rpx solid #eef2f1;
+	}
+
+	.delivery-section {
 		display: flex;
 		flex-direction: column;
 		gap: 16rpx;
 	}
 
-	.delivery-section-title {
+	.delivery-section-title,
+	.chef-section-title,
+	.pickup-title {
 		font-size: 28rpx;
 		line-height: 1;
 		font-weight: 900;
 		color: #202725;
-		margin-bottom: 6rpx;
 	}
 
 	.delivery-row {
@@ -650,28 +782,17 @@
 		box-sizing: border-box;
 	}
 
-	.delivery-placeholder {
+	.delivery-placeholder,
+	.remark-placeholder {
 		color: #b7bdba;
 	}
 
-	.chef-section {
-		margin-top: 26rpx;
-		padding-top: 24rpx;
-		border-top: 1rpx solid #eef2f1;
-	}
-
-	.chef-section-head {
+	.chef-section-head,
+	.pickup-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		margin-bottom: 16rpx;
-	}
-
-	.chef-section-title {
-		font-size: 28rpx;
-		line-height: 1;
-		font-weight: 900;
-		color: #202725;
 	}
 
 	.chef-section-count {
@@ -718,6 +839,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12rpx;
+	}
+
+	.chef-info.no-avatar {
+		margin-left: 0;
 	}
 
 	.chef-name-line {
@@ -810,26 +935,6 @@
 		background: #35cda4;
 	}
 
-	.pickup-section {
-		margin-top: 26rpx;
-		padding-top: 24rpx;
-		border-top: 1rpx solid #eef2f1;
-	}
-
-	.pickup-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 16rpx;
-	}
-
-	.pickup-title {
-		font-size: 28rpx;
-		line-height: 1;
-		font-weight: 900;
-		color: #202725;
-	}
-
 	.pickup-copy {
 		height: 46rpx;
 		padding: 0 22rpx;
@@ -882,22 +987,9 @@
 		color: #8f9794;
 	}
 
-	.pickup-tip {
-		display: block;
-		margin-top: 14rpx;
-		font-size: 22rpx;
-		line-height: 1;
-		font-weight: 700;
-		color: #9aa2a0;
-	}
-
-	.remark-card {
-		padding-bottom: 24rpx;
-	}
-
 	.remark-input {
 		width: 100%;
-		height: 110rpx;
+		height: 112rpx;
 		margin-top: 24rpx;
 		padding: 24rpx;
 		border-radius: 10rpx;
@@ -908,28 +1000,45 @@
 		box-sizing: border-box;
 	}
 
-	.remark-placeholder {
-		color: #b7bdba;
+	.toggle-card {
+		padding-top: 22rpx;
+		padding-bottom: 22rpx;
 	}
 
-	.share-card {
-		min-height: 124rpx;
+	.toggle-row {
+		min-height: 72rpx;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: 18rpx;
 	}
 
-	.share-copy {
+	.toggle-copy {
+		flex: 1;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 14rpx;
+		gap: 10rpx;
 	}
 
-	.share-desc {
+	.toggle-title {
+		font-size: 32rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+	}
+
+	.toggle-desc {
 		font-size: 24rpx;
 		line-height: 1;
 		font-weight: 700;
 		color: #8f9794;
+	}
+
+	.toggle-divider {
+		height: 1rpx;
+		margin: 22rpx 0;
+		background: #edf1ef;
 	}
 
 	.submit-bottom-bar {
@@ -938,7 +1047,7 @@
 		right: 0;
 		bottom: 0;
 		width: 750rpx;
-		height: calc(132rpx + env(safe-area-inset-bottom));
+		height: calc(112rpx + env(safe-area-inset-bottom));
 		padding: 0 24rpx env(safe-area-inset-bottom);
 		display: flex;
 		align-items: center;
@@ -968,4 +1077,18 @@
 		line-height: 1;
 		font-weight: 900;
 	}
+	.service-chip.unavailable { background:#f2f4f3; color:#9aa3a0; border-color:#e6e9e8; }
+	.service-unavailable { margin-left:6rpx; font-size:20rpx; color:#f08b70; }
+	.region-mask { position:fixed; inset:0; z-index:80; background:rgba(25,31,29,.48); }
+	.region-sheet { position:fixed; left:0; right:0; bottom:0; z-index:81; padding:30rpx 28rpx calc(30rpx + env(safe-area-inset-bottom)); border-radius:30rpx 30rpx 0 0; background:#fbfefd; box-sizing:border-box; }
+	.region-sheet-head { display:flex; align-items:center; justify-content:space-between; }
+	.region-sheet-title { font-size:34rpx; font-weight:900; color:#202725; }
+	.region-close { width:56rpx; height:56rpx; text-align:center; font-size:46rpx; line-height:50rpx; color:#8f9895; }
+	.region-tip { display:block; margin:12rpx 0 24rpx; font-size:24rpx; line-height:1.5; color:#8f9895; }
+	.region-line { display:flex; gap:14rpx; }
+	.region-input { height:76rpx; margin-bottom:16rpx; padding:0 22rpx; border-radius:14rpx; background:#f3f6f5; font-size:27rpx; box-sizing:border-box; }
+	.region-third { flex:1; min-width:0; }
+	.region-textarea { width:100%; height:130rpx; margin-bottom:22rpx; padding:20rpx 22rpx; border-radius:14rpx; background:#f3f6f5; font-size:27rpx; box-sizing:border-box; }
+	.region-submit { height:78rpx; display:flex; align-items:center; justify-content:center; border-radius:40rpx; background:#35cda4; color:#fff; font-size:30rpx; font-weight:900; }
+	.region-submit.disabled { opacity:.55; }
 </style>

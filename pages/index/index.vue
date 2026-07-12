@@ -35,18 +35,20 @@
 			<view class="status-bar"></view>
 			<view class="nav-bar order-nav">
 				<view class="order-nav-left">
-					<!-- 订单筛选/日期选择：无后端支撑，暂隐藏 -->
-					<view class="filter-dropdown" v-if="false">
+					<!-- 订单筛选/日期选择 -->
+					<view class="filter-dropdown" @tap="onOrderWhoTap">
 						<text class="filter-text">{{ orderWho }}</text>
 						<text class="filter-arrow"></text>
 					</view>
-					<view class="filter-dropdown" v-if="false">
+					<view class="filter-dropdown" @tap="onOrderTypeTap">
 						<text class="filter-text">{{ orderType }}</text>
 						<text class="filter-arrow"></text>
 					</view>
-					<view class="date-picker-btn" v-if="false">
-						<text class="date-text">请选择日期</text>
-					</view>
+					<picker mode="date" :value="orderDate" @change="onOrderDateChange">
+						<view class="date-picker-btn">
+							<text class="date-text">{{ orderDate || '请选择日期' }}</text>
+						</view>
+					</picker>
 				</view>
 				<view class="capsule-menu light-capsule">
 					<view class="capsule-dots">
@@ -146,11 +148,10 @@
 			</view>
 
 			<view class="controls-container">
-				<view class="control-btn btn-random" v-if="showRandom && dishes.length > 0" @tap="onRandomTap">
+				<view class="control-btn btn-random" v-if="showRandom && flatKitchenDishes.length > 0" @tap="onRandomTap">
 					<text>随机选</text>
 				</view>
-				<!-- 管理 / 添加菜品 已移除：菜品的增改由独立后台管理系统负责，前端只读 -->
-				<view class="control-btn btn-search">
+				<view class="control-btn btn-search" @tap="onSearchTap">
 					<image class="svg-search" src="/static/search.svg" mode="aspectFit"></image>
 					<text>搜索</text>
 				</view>
@@ -163,17 +164,22 @@
 			<view class="tab-content kitchen-content" v-if="currentTabbar === 'kitchen'">
 				<!-- "私房菜" Tab View -->
 				<view class="tab-content private-content" v-if="activeTab === 'private'">
-					<view class="kitchen-category-strip three-level-category-strip">
+					<view class="kitchen-category-strip three-level-category-strip" v-if="kitchenCategoryTree.length > 1">
 						<view class="category-strip-marker"></view>
 						<scroll-view class="level-one-text-scroll" scroll-x="true" show-scrollbar="false">
-							<view
-								class="kitchen-category-label"
-								:class="{ active: activeKitchenLevelOneId === item.id }"
-								v-for="item in kitchenCategoryTree"
-								:key="item.id"
-								@tap="selectKitchenLevelOne(item)"
-							>
-								<text>{{ item.name }}</text>
+							<view class="level-one-text-list">
+								<view
+									class="kitchen-category-label"
+									:class="{ active: activeKitchenLevelOneId === item.id }"
+									v-for="item in kitchenCategoryTree"
+									:key="item.id"
+									@tap="selectKitchenLevelOne(item)"
+								>
+									<view class="level-one-thumb-wrap">
+										<image class="level-one-thumb" :src="categoryPreview(item)" mode="aspectFill"></image>
+									</view>
+									<text>{{ item.name }}</text>
+								</view>
 							</view>
 						</scroll-view>
 						<view class="refresh-action" @tap="onRefreshTap">
@@ -181,7 +187,7 @@
 						</view>
 					</view>
 
-					<view class="kitchen-category-body">
+					<view class="kitchen-category-body" :class="{ 'no-level-one-strip': kitchenCategoryTree.length <= 1 }">
 						<view class="kitchen-side-pane">
 							<view 
 								class="side-category" 
@@ -199,7 +205,10 @@
 						</view>
 						<view class="kitchen-main-pane">
 							<view class="category-main-head" v-if="activeKitchenLevelTwo">
-								<text>{{ activeKitchenLevelTwo.name }}</text>
+								<text>{{ searchKeyword ? `搜索：${searchKeyword}` : activeKitchenLevelTwo.name }}</text>
+								<view class="refresh-action main-refresh-action" @tap="onRefreshTap">
+									<image class="svg-refresh" :class="{ rotating: isRefreshing }" src="/static/refresh.svg" mode="aspectFit"></image>
+								</view>
 							</view>
 							<view class="kitchen-dish-list" v-if="activeKitchenDishes.length > 0">
 								<view 
@@ -207,12 +216,12 @@
 									:class="{ active: activeKitchenDishId === dish.id, selected: isDishSelected(dish.id) }" 
 									v-for="dish in activeKitchenDishes" 
 									:key="dish.id"
-									@tap="toggleSelectDish(dish.id)"
+									@tap="openDishDetail(dish.id)"
 								>
 									<image class="kitchen-dish-img" :src="dish.image" mode="aspectFill"></image>
 									<view class="kitchen-dish-info">
 										<text class="kitchen-dish-name">{{ dish.name }}</text>
-										<text class="kitchen-dish-sales">销量 {{ dish.sales || 0 }}</text>
+										<text class="kitchen-dish-sales">{{ dish.desc || '家常美味 · 下饭好菜' }}</text>
 									</view>
 									<view class="dish-action-cell">
 										<view class="dish-select-btn" @tap.stop="toggleSelectDish(dish.id)">
@@ -223,25 +232,25 @@
 								</view>
 							</view>
 							<view class="category-empty-pill" v-else>
-								<text>该分类暂无美味~</text>
+								<text>{{ searchKeyword ? '没有找到相关菜品' : '该分类暂无美味' }}</text>
 							</view>
 						</view>
 					</view>
 					
 					<!-- Bottom Floating Shopping Cart Panel -->
 					<view class="cart-panel" :class="{ 'highlight-tutorial': tutorialStep === 3 }">
-						<view class="cart-left">
+						<view class="cart-left" @tap="openSelectedDrawer">
 							<view class="cart-icon-container">
 								<image class="svg-cart" src="/static/cart.svg" mode="aspectFit"></image>
-								<view class="cart-badge" v-if="selectedDishIds.length > 0">
-									<text class="badge-text">{{ selectedDishIds.length }}</text>
+								<view class="cart-badge" v-if="selectedTotalCount > 0">
+									<text class="badge-text">{{ selectedTotalCount }}</text>
 								</view>
 							</view>
 						</view>
 						
 						<scroll-view class="cart-selected-preview" scroll-x="true" show-scrollbar="false" v-if="selectedKitchenDishes.length > 0">
 							<view class="cart-selected-list">
-								<view class="cart-selected-pill" v-for="dish in selectedKitchenDishes" :key="dish.id" @tap="toggleSelectDish(dish.id)">
+								<view class="cart-selected-pill" v-for="dish in selectedKitchenDishes" :key="dish.id" @tap="openSelectedDrawer">
 									<text>{{ dish.name }}</text>
 								</view>
 							</view>
@@ -254,12 +263,12 @@
 							<button class="cart-btn btn-invite" open-type="share" hover-class="cart-btn-hover" @tap="onInviteTap">
 								<text>邀请下单</text>
 							</button>
-							<view class="cart-btn btn-done" :class="{ active: selectedDishIds.length > 0 }" @tap="onDoneTap">
-								<text>{{ selectedDishIds.length > 0 ? `选好了(${selectedDishIds.length})` : '选好了' }}</text>
+							<view class="cart-btn btn-done" :class="{ active: selectedTotalCount > 0 }" @tap="onDoneTap">
+								<text>{{ selectedTotalCount > 0 ? `选好了(${selectedTotalCount})` : '选好了' }}</text>
 							</view>
 						</view>
 						
-						<view class="cart-right">
+						<view class="cart-right" @tap="openSelectedDrawer">
 							<image class="svg-arrow" src="/static/arrow_left.svg" mode="aspectFit"></image>
 						</view>
 					</view>
@@ -267,10 +276,14 @@
 
 				<!-- "今日安排" Tab View -->
 				<view class="tab-content today-content" v-if="activeTab === 'today'">
+					<view class="today-category-tabs">
+						<view class="today-category-item" :class="{ active: activeTodayCategory === 'hotpot' }" @tap="activeTodayCategory = 'hotpot'">火锅类</view>
+						<view class="today-category-item" :class="{ active: activeTodayCategory === 'barbecue' }" @tap="activeTodayCategory = 'barbecue'">烧烤</view>
+					</view>
 					<view class="alert-notice-wrapper">
 						<view class="alert-banner">
 							<image class="svg-info" src="/static/info.svg" mode="aspectFit"></image>
-							<text class="alert-text">今天还没有安排，快去邀请好友/自己下单吧~</text>
+							<text class="alert-text">{{ activeTodayCategory === 'hotpot' ? '火锅类' : '烧烤' }}暂时还没有菜品</text>
 						</view>
 					</view>
 				</view>
@@ -282,7 +295,7 @@
 				<view class="order-top-row">
 					<view class="order-decor-avocado-card">
 						<image class="avocado-img" src="/static/avocado.svg" mode="aspectFit"></image>
-						<text class="order-decor-text">一共记录了 <text class="highlight-num">{{ ordersTotal }}</text> 个{{ orderWho }}</text>
+						<text class="order-decor-text">一共记录了 <text class="highlight-num">{{ displayOrders.length }}</text> 个{{ orderWho }}</text>
 					</view>
 					<view class="order-sub-tabs" v-if="showDiary">
 						<view class="order-sub-tab" :class="{ active: activeOrderSubTab === 'order' }" @tap="switchOrderSubTab('order')">
@@ -295,20 +308,85 @@
 				</view>
 
 				<!-- 我的订单列表（来自后端） -->
-				<view class="my-order-list" v-if="activeOrderSubTab === 'order' && myOrders.length">
-					<view class="my-order-card" v-for="o in myOrders" :key="o.id" @tap="onOrderTap(o)">
+				<view class="my-order-list" v-if="activeOrderSubTab === 'order' && displayOrders.length">
+					<view class="my-order-card" v-for="o in displayOrders" :key="o.id" @tap="onOrderTap(o)">
 						<view class="my-order-head">
-							<text class="my-order-no">#{{ o.orderNo }}</text>
-							<text class="my-order-status" :class="'st-' + o.orderStatus">{{ orderStatusText(o.orderStatus) }}</text>
+							<image class="my-order-avatar" :src="orderUserAvatar(o)" mode="aspectFill"></image>
+							<view class="my-order-user">
+								<view class="my-order-name-row">
+									<text class="my-order-user-name">{{ orderDisplayName(o) }}</text>
+									<text class="my-order-self">自己</text>
+								</view>
+								<text class="my-order-time">{{ orderCardTime(o.createTime) }}</text>
+							</view>
+							<view class="my-order-tags">
+								<view class="my-order-dine-tag">
+									<text class="dine-tag-dot"></text>
+									<text>{{ serviceTypeText(o.serviceType) }}</text>
+								</view>
+								<view class="my-order-kitchen-tag">
+									<image class="my-order-kitchen-icon" src="/static/chef_hat.svg" mode="aspectFit"></image>
+									<text>我的厨房</text>
+								</view>
+							</view>
 						</view>
-						<view class="my-order-body">
-							<text class="my-order-service">{{ serviceTypeText(o.serviceType) }}</text>
-							<text class="my-order-amount">￥{{ o.totalAmount }} · {{ o.totalCount }}件</text>
+						<view class="my-order-food-row">
+							<image class="my-order-food-img" :src="orderPreviewImage(o)" mode="aspectFill"></image>
+							<view class="my-order-side-icons">
+								<image class="my-order-note-icon" src="/static/calendar_noodles.svg" mode="aspectFit"></image>
+								<image class="my-order-plate-icon" src="/static/discover_eati.svg" mode="aspectFit"></image>
+							</view>
 						</view>
-						<view class="my-order-foot">
-							<text class="my-order-time">{{ formatTime(o.createTime) }}</text>
-							<text class="my-order-link">{{ canRefund(o) ? '详情 / 申请退款' : '查看详情' }}</text>
+						<text class="my-order-summary">共 {{ orderDishCount(o) }} 道美味</text>
+						<view class="my-order-divider"></view>
+						<view class="my-order-actions">
+							<text class="my-order-progress" :class="'st-' + o.orderStatus">{{ orderListStatusText(o.orderStatus) }}</text>
+							<view class="my-order-action-group">
+								<view class="my-order-action-btn complete" :class="{ disabled: orderCompletingId === o.id }" @tap.stop="onOrderCompleteTap(o)">
+									<text class="action-check">✓</text>
+									<text>{{ orderPrimaryText(o) }}</text>
+								</view>
+								<view class="my-order-action-btn buy" @tap.stop="onOrderBuyAgain(o)">
+									<image class="action-cart" src="/static/cart.svg" mode="aspectFit"></image>
+									<text>去买菜</text>
+								</view>
+								<view class="my-order-more" @tap.stop="onOrderTap(o)">
+									<text>•••</text>
+								</view>
+							</view>
 						</view>
+					</view>
+					<view class="order-list-footer">
+						<view class="footer-line"></view>
+						<text>没有更多了</text>
+						<view class="footer-line"></view>
+					</view>
+				</view>
+
+				<view class="diary-list" v-else-if="activeOrderSubTab === 'diary'">
+					<view class="diary-publish-card" @tap="onPublishResultTap">
+						<image class="diary-publish-icon" src="/static/camera.svg" mode="aspectFit"></image>
+						<view class="diary-publish-copy">
+							<text class="diary-publish-title">发布美食日记</text>
+							<text class="diary-publish-desc">上传成品图，记录这次搭配</text>
+						</view>
+					</view>
+					<view class="diary-card" v-for="post in shareSquarePosts" :key="post.id" @tap="onCommentPostTap(post)">
+						<image class="diary-img" :src="post.image" mode="aspectFill"></image>
+						<view class="diary-main">
+							<text class="diary-title">{{ post.title || '美食日记' }}</text>
+							<text class="diary-content">{{ post.content || '记录一次好好吃饭' }}</text>
+							<text class="diary-meta">{{ post.time }} · {{ post.likes }}赞 · {{ post.comments }}评</text>
+						</view>
+					</view>
+					<view class="order-list-footer" v-if="shareSquarePosts.length">
+						<view class="footer-line"></view>
+						<text>没有更多了</text>
+						<view class="footer-line"></view>
+					</view>
+					<view class="order-empty-state diary-empty" v-if="!shareSquarePosts.length">
+						<image class="order-empty-rabbit-img" src="/static/empty_box_rabbit.png" mode="aspectFit"></image>
+						<text class="order-empty-text">还没有美食日记</text>
 					</view>
 				</view>
 
@@ -395,11 +473,11 @@
 						<image class="my-profile-avatar" src="/static/kitchen_avatar.png" mode="aspectFill"></image>
 						<view class="profile-names">
 							<view class="profile-username-row">
-								<text class="profile-username">御厨9061</text>
+								<text class="profile-username">{{ userDisplayName }}</text>
 								<image class="username-edit-pen-img" src="/static/edit_green.svg" mode="aspectFit"></image>
 							</view>
 							<view class="profile-user-id-row" @tap="copyUserCode">
-								<text class="profile-user-id">ID: 8115*******9061</text>
+								<text class="profile-user-id">{{ maskedUserCode }}</text>
 								<image class="username-copy-btn-img" src="/static/copy_gray.svg" mode="aspectFit"></image>
 							</view>
 						</view>
@@ -416,21 +494,18 @@
 						<!-- Slide 1 -->
 						<swiper-item>
 							<view class="my-grid-layout">
-								<!-- Feature 1: 美食日历 -->
 								<view class="my-grid-item-cell" @tap="onMyMenuTap('美食日历')" v-if="showDiary">
 									<view class="my-grid-icon-circle soft-bg-mint">
 										<image class="my-grid-svg" src="/static/my_calendar.svg" mode="aspectFit"></image>
 									</view>
 									<text class="my-grid-item-label">美食日历</text>
 								</view>
-								
-								<!-- Feature 2: 饮食计划（无后端支撑，暂隐藏） -->
-								<view class="my-grid-item-cell" v-if="false">
-									<view class="my-grid-icon-circle soft-bg-mint">
-										<image class="my-grid-svg" src="/static/my_plan.svg" mode="aspectFit"></image>
-									</view>
-									<text class="my-grid-item-label">饮食计划</text>
-								</view>
+								<view class="my-grid-item-cell social-entry couple" @tap="onMyMenuTap('情侣空间')"><view class="social-entry-icon">♥</view><text class="my-grid-item-label">情侣空间</text></view>
+								<view class="my-grid-item-cell social-entry party" @tap="onMyMenuTap('多人聚餐')"><view class="social-entry-icon">聚</view><text class="my-grid-item-label">多人聚餐</text></view>
+								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('订单管理')"><view class="social-entry-icon">单</view><text class="my-grid-item-label">订单管理</text></view>
+								<button class="my-grid-item-cell social-entry native-entry" open-type="share"><view class="social-entry-icon">享</view><text class="my-grid-item-label">分享好友</text></button>
+								<button class="my-grid-item-cell social-entry native-entry" open-type="contact"><view class="social-entry-icon">客</view><text class="my-grid-item-label">联系客服</text></button>
+								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('申请加盟')"><view class="social-entry-icon">盟</view><text class="my-grid-item-label">申请加盟</text></view>
 							</view>
 						</swiper-item>
 					</swiper>
@@ -468,16 +543,16 @@
 				</view>
 
 				<!-- Subscription Notice（订阅通知：无后端支撑，暂隐藏） -->
-				<view class="my-sub-notice-row" v-if="false">
+				<view class="my-sub-notice-row" v-if="socialUnread > 0" @tap="showSocialNotifications">
 					<view class="sub-notice-left-side">
 						<image class="bell-alert-icon" src="/static/discover_bell.svg" mode="aspectFit"></image>
 						<view class="sub-notice-text-content">
-							<text class="sub-notice-main-text">订阅通知</text>
-							<text class="sub-notice-sub-text">点击增加消息通知次数</text>
+							<text class="sub-notice-main-text">情侣投喂消息</text>
+							<text class="sub-notice-sub-text">你有 {{ socialUnread }} 条新消息</text>
 						</view>
 					</view>
 					<view class="sub-notice-right-side">
-						<text class="sub-notice-status-lbl">未开启</text>
+						<text class="sub-notice-status-lbl">查看</text>
 						<text class="sub-notice-arrow-icon">›</text>
 					</view>
 				</view>
@@ -485,6 +560,54 @@
 				<!-- Bottom Watermark -->
 				<view class="my-footer-watermark-row">
 					<text class="footer-watermark-text">以御膳之礼.. 待日常三餐</text>
+				</view>
+			</view>
+		</view>
+
+		<view class="selected-drawer-mask" v-if="showSelectedDrawer" @tap="closeSelectedDrawer"></view>
+		<view class="selected-drawer" v-if="showSelectedDrawer" @tap.stop>
+			<view class="selected-drawer-head">
+				<text class="selected-drawer-title">已选</text>
+				<view class="selected-clear" :class="{ disabled: selectedTotalCount === 0 }" @tap="clearSelectedDishes">
+					<image class="selected-clear-icon" src="/static/delete_red.svg" mode="aspectFit"></image>
+					<text>清空</text>
+				</view>
+			</view>
+			<scroll-view class="selected-drawer-list" scroll-y>
+				<view class="selected-drawer-row" v-for="dish in selectedKitchenDishes" :key="dish.id">
+					<image class="selected-drawer-img" :src="dish.image" mode="aspectFill"></image>
+					<text class="selected-drawer-name">{{ dish.name }}</text>
+					<view class="qty-btn minus" @tap="changeDishQuantity(dish.id, -1)">
+						<text>−</text>
+					</view>
+					<text class="selected-drawer-qty">{{ dish.quantity || 1 }}</text>
+					<view class="qty-btn plus" @tap="changeDishQuantity(dish.id, 1)">
+						<text>+</text>
+					</view>
+				</view>
+				<view class="selected-drawer-empty" v-if="!selectedKitchenDishes.length">
+					<text>还没有选择菜品</text>
+				</view>
+			</scroll-view>
+			<view class="selected-drawer-cart">
+				<view class="cart-left">
+					<view class="cart-icon-container">
+						<image class="svg-cart" src="/static/cart.svg" mode="aspectFit"></image>
+						<view class="cart-badge" v-if="selectedTotalCount > 0">
+							<text class="badge-text">{{ selectedTotalCount }}</text>
+						</view>
+					</view>
+				</view>
+				<view class="cart-center">
+					<button class="cart-btn btn-invite" open-type="share" hover-class="cart-btn-hover" @tap="onInviteTap">
+						<text>邀请下单</text>
+					</button>
+					<view class="cart-btn btn-done" :class="{ active: selectedTotalCount > 0 }" @tap="onDoneTap">
+						<text>选好了</text>
+					</view>
+				</view>
+				<view class="cart-right" @tap="closeSelectedDrawer">
+					<image class="svg-arrow" src="/static/arrow_left.svg" mode="aspectFit"></image>
 				</view>
 			</view>
 		</view>
@@ -677,7 +800,7 @@
 				</view>
 				<view class="detail-section">
 					<text class="section-title">购买菜品</text>
-					<view class="order-item-row" v-for="item in orderDetailItems" :key="item.id || item.dishId">
+									<view class="order-item-row" v-for="item in orderDetailItems" :key="item.id || item.dishId" @tap="openDishDetail(item.dishId)">
 						<image class="order-item-img" :src="item.dishCover || '/static/onion_chicken.png'" mode="aspectFill"></image>
 						<view class="order-item-main">
 							<text class="order-item-name">{{ item.dishName || '菜品' }}</text>
@@ -794,29 +917,38 @@
 	import { apiShareList, apiShareLike, apiSharePublish } from '@/api/share.js'
 	import { apiCommentList, apiCommentAdd } from '@/api/comment.js'
 	import { apiShopInfo } from '@/api/shop.js'
-	import { apiMyOrders, apiOrderDetail, apiOrderRefund } from '@/api/order.js'
+	import { apiUserInfo } from '@/api/auth.js'
+	import { apiMyOrders, apiOrderDetail, apiOrderRefund, apiOrderComplete } from '@/api/order.js'
 	import { ensureLogin } from '@/utils/login.js'
-	import { getToken } from '@/utils/auth.js'
+	import { getToken, getUserInfo, setUserInfo } from '@/utils/auth.js'
 	import { uploadFile } from '@/utils/request.js'
+	import { apiSocialNotifications, apiSocialNotificationsRead } from '@/api/social.js'
 
 	export default {
 		data() {
 			return {
 				activeTab: 'private',     // 'private' | 'today'
+				activeTodayCategory: 'hotpot',
+				socialUnread: 0,
+				socialNotifications: [],
 				currentTabbar: 'kitchen', // 'kitchen' | 'order' | 'discover' | 'my'
 				tutorialStep: 0,          // 0 to 4 (onboarding)
 				isRefreshing: false,
 				showAddDrawer: false,
+				showSelectedDrawer: false,
 				dishes: [],
 				selectedDishIds: [],
+				selectedDishQuantities: {},
 				pendingInviteDishIds: [],
 				shopInfo: null,
 				myOrders: [],
 				ordersTotal: 0,
+				currentUser: {},
 				showOrderDetail: false,
 				orderDetail: null,
 				orderDetailLoading: false,
 				refundingOrder: false,
+				orderCompletingId: null,
 				activeOrderSubTab: 'order', // 'order' | 'diary'
 				myGridPageIndex: 0,
 				activityCells: [],
@@ -832,6 +964,7 @@
 				activeKitchenLevelOneId: '',
 				activeKitchenLevelTwoId: '',
 				activeKitchenDishId: '',
+				searchKeyword: '',
 				// 分类树：靠 loadCategoryTree 填充；失败即保持空
 				kitchenCategoryTree: [],
 				
@@ -839,8 +972,10 @@
 				kitchenName: '我的厨房',
 				showDiary: true,
 				showRandom: true,
-				orderWho: '订单',
+				orderWho: '厨房订单',
 				orderType: '全部',
+				orderDate: '',
+				orderTypeOptions: ['全部', '待完成', '已完成', '退款/取消'],
 
 				// 进入小程序的公告弹窗（内容由后端 shop 下发）
 				showAnnouncement: false,
@@ -863,7 +998,13 @@
 				return this.activeKitchenLevelTwoList.find(item => item.id === this.activeKitchenLevelTwoId) || this.activeKitchenLevelTwoList[0] || null;
 			},
 			activeKitchenDishes() {
-				return this.activeKitchenLevelTwo ? (this.activeKitchenLevelTwo.dishes || []) : [];
+				const list = this.activeKitchenLevelTwo ? (this.activeKitchenLevelTwo.dishes || []) : [];
+				const keyword = this.searchKeyword.trim().toLowerCase();
+				if (!keyword) return list;
+				return list.filter(dish => {
+					return [dish.name, dish.desc, dish.levelOneName, dish.levelTwoName]
+						.some(value => String(value || '').toLowerCase().includes(keyword));
+				});
 			},
 			activeKitchenDish() {
 				return this.activeKitchenDishes.find(item => item.id === this.activeKitchenDishId) || this.activeKitchenDishes[0] || null;
@@ -885,11 +1026,53 @@
 			},
 			selectedKitchenDishes() {
 				return this.selectedDishIds
-					.map(id => this.flatKitchenDishes.find(dish => String(dish.id) === String(id)))
+					.map(id => {
+						const dish = this.flatKitchenDishes.find(item => String(item.id) === String(id));
+						return dish ? {
+							...dish,
+							quantity: this.getDishQuantity(id)
+						} : null;
+					})
 					.filter(Boolean);
+			},
+			selectedTotalCount() {
+				return this.selectedDishIds.reduce((sum, id) => sum + this.getDishQuantity(id), 0);
+			},
+			userDisplayCode() {
+				const user = this.currentUser || {};
+				return user.userCode || user.openid || user.openId || user.id || '';
+			},
+			userDisplayName() {
+				const user = this.currentUser || {};
+				if (user.nickname || user.nickName) return user.nickname || user.nickName;
+				const code = String(this.userDisplayCode || '');
+				return code ? `御厨${code.slice(-4)}` : '我的厨房';
+			},
+			maskedUserCode() {
+				const code = String(this.userDisplayCode || '');
+				if (!code) return 'ID: 未生成';
+				if (code.length <= 8) return `ID: ${code}`;
+				return `ID: ${code.slice(0, 4)}****${code.slice(-4)}`;
 			},
 			orderDetailItems() {
 				return (this.orderDetail && Array.isArray(this.orderDetail.items)) ? this.orderDetail.items : [];
+			},
+			displayOrders() {
+				const typeMap = {
+					'待完成': ['0', '1', '2'],
+					'已完成': ['3'],
+					'退款/取消': ['4', '5']
+				};
+				return (this.myOrders || []).filter(order => {
+					const status = String(order.orderStatus);
+					if (this.orderType !== '全部' && !(typeMap[this.orderType] || []).includes(status)) {
+						return false;
+					}
+					if (this.orderDate && String(order.createTime || '').slice(0, 10) !== this.orderDate) {
+						return false;
+					}
+					return true;
+				});
 			}
 		},
 		onLoad(options = {}) {
@@ -905,6 +1088,7 @@
 			this.loadSelectedDishIds();
 			this.loadDishes();
 			this.loadSettings();
+			this.loadUserProfile();
 			// 三端互通：拉取后端真实数据（失败/为空显示空状态，不回退假数据）
 			this.loadCategoryTree();
 			this.loadShareSquare();
@@ -925,6 +1109,14 @@
 			};
 		},
 		methods: {
+			categoryPreview(category) {
+				const groups = (category && category.children) || [];
+				for (const group of groups) {
+					const dish = group.dishes && group.dishes[0];
+					if (dish && dish.image) return dish.image;
+				}
+				return '/static/onion_chicken.png';
+			},
 			// ==== 后端数据对接 ====
 			async loadCategoryTree() {
 				try {
@@ -1023,6 +1215,20 @@
 					this.maybeShowAnnouncement();
 				} catch (e) {}
 			},
+			async loadUserProfile() {
+				const cached = getUserInfo();
+				if (cached) {
+					this.currentUser = cached;
+				}
+				try {
+					const res = await apiUserInfo();
+					const user = res && res.data;
+					if (user) {
+						this.currentUser = user;
+						setUserInfo(user);
+					}
+				} catch (e) {}
+			},
 			async loadMyOrders() {
 				try {
 					await ensureLogin();
@@ -1066,6 +1272,10 @@
 				} finally {
 					this.orderDetailLoading = false;
 				}
+			},
+			openDishDetail(id) {
+				if (id == null) return;
+				uni.navigateTo({ url: `/pages/dish-detail/dish-detail?id=${id}` });
 			},
 			closeOrderDetail() {
 				this.showOrderDetail = false;
@@ -1139,6 +1349,21 @@
 			loadSelectedDishIds() {
 				const cached = uni.getStorageSync('selectedDishIds');
 				this.selectedDishIds = Array.isArray(cached) ? cached : [];
+				const quantities = uni.getStorageSync('selectedDishQuantities') || {};
+				const next = {};
+				this.selectedDishIds.forEach(id => {
+					const qty = Number(quantities[id]);
+					next[id] = Number.isFinite(qty) && qty > 0 ? qty : 1;
+				});
+				this.selectedDishQuantities = next;
+			},
+			persistSelectedDishes() {
+				uni.setStorageSync('selectedDishIds', this.selectedDishIds);
+				uni.setStorageSync('selectedDishQuantities', this.selectedDishQuantities);
+			},
+			getDishQuantity(id) {
+				const qty = Number(this.selectedDishQuantities[String(id)] || this.selectedDishQuantities[id]);
+				return Number.isFinite(qty) && qty > 0 ? qty : 1;
 			},
 			normalizeInviteIds(value) {
 				const raw = Array.isArray(value) ? value.join(',') : String(value || '');
@@ -1164,7 +1389,10 @@
 				if (!ids.length) return;
 				this.pendingInviteDishIds = ids;
 				this.selectedDishIds = ids;
-				uni.setStorageSync('selectedDishIds', ids);
+				const quantities = {};
+				ids.forEach(id => { quantities[id] = 1; });
+				this.selectedDishQuantities = quantities;
+				this.persistSelectedDishes();
 				uni.showToast({
 					title: `已带入${ids.length}道邀请菜品`,
 					icon: 'none'
@@ -1199,14 +1427,44 @@
 				const idx = this.selectedDishIds.findIndex(item => String(item) === String(id));
 				if (idx > -1) {
 					this.selectedDishIds.splice(idx, 1);
+					this.$delete ? this.$delete(this.selectedDishQuantities, String(id)) : delete this.selectedDishQuantities[String(id)];
 				} else {
 					this.selectedDishIds.push(id);
+					this.$set ? this.$set(this.selectedDishQuantities, String(id), 1) : (this.selectedDishQuantities[String(id)] = 1);
 				}
 				this.activeKitchenDishId = id;
-				uni.setStorageSync('selectedDishIds', this.selectedDishIds);
+				this.persistSelectedDishes();
+			},
+			changeDishQuantity(id, delta) {
+				const key = String(id);
+				const current = this.getDishQuantity(key);
+				const next = current + delta;
+				if (next <= 0) {
+					const idx = this.selectedDishIds.findIndex(item => String(item) === key);
+					if (idx > -1) this.selectedDishIds.splice(idx, 1);
+					this.$delete ? this.$delete(this.selectedDishQuantities, key) : delete this.selectedDishQuantities[key];
+				} else {
+					this.$set ? this.$set(this.selectedDishQuantities, key, Math.min(next, 99)) : (this.selectedDishQuantities[key] = Math.min(next, 99));
+				}
+				this.persistSelectedDishes();
+			},
+			clearSelectedDishes() {
+				if (!this.selectedDishIds.length) return;
+				this.selectedDishIds = [];
+				this.selectedDishQuantities = {};
+				this.persistSelectedDishes();
+				this.closeSelectedDrawer();
+			},
+			openSelectedDrawer() {
+				if (!this.selectedDishIds.length) return;
+				this.showSelectedDrawer = true;
+			},
+			closeSelectedDrawer() {
+				this.showSelectedDrawer = false;
 			},
 			selectKitchenLevelOne(item) {
 				if (!item) return;
+				this.searchKeyword = '';
 				this.activeKitchenLevelOneId = item.id;
 				const firstLevelTwo = (item.children || [])[0];
 				this.activeKitchenLevelTwoId = firstLevelTwo ? firstLevelTwo.id : '';
@@ -1215,6 +1473,7 @@
 			},
 			selectKitchenLevelTwo(item) {
 				if (!item) return;
+				this.searchKeyword = '';
 				this.activeKitchenLevelTwoId = item.id;
 				const firstDish = (item.dishes || [])[0];
 				this.activeKitchenDishId = firstDish ? firstDish.id : '';
@@ -1248,9 +1507,41 @@
 					url: '/pages/category-manage/category-manage'
 				});
 			},
+			onDishManageTap() {
+				if (this.tutorialStep > 0) return;
+				uni.navigateTo({
+					url: '/pages/dish-manage/dish-manage'
+				});
+			},
+			onSearchTap() {
+				uni.showModal({
+					title: '搜索菜品',
+					editable: true,
+					placeholderText: '输入菜名、食材或口味',
+					confirmText: '搜索',
+					cancelText: this.searchKeyword ? '清空' : '取消',
+					success: (res) => {
+						if (res.confirm) {
+							this.searchKeyword = (res.content || '').trim();
+						} else if (this.searchKeyword) {
+							this.searchKeyword = '';
+						}
+					}
+				});
+			},
 			switchTabbar(tabbar) {
 				if (this.tutorialStep > 0) return; // Prevent switching tabbar during tutorial
 				this.currentTabbar = tabbar;
+				if (tabbar === 'my') this.loadSocialNotifications();
+			},
+			async loadSocialNotifications() {
+				if (!getToken()) return;
+				try { const res = await apiSocialNotifications(); const data = (res && res.data) || {}; this.socialUnread = Number(data.unread) || 0; this.socialNotifications = data.rows || []; } catch (e) {}
+			},
+			async showSocialNotifications() {
+				const content = this.socialNotifications.slice(0, 5).map(item => `${item.title}\n${item.content || ''}`).join('\n\n') || '暂无消息';
+				uni.showModal({ title: '消息通知', content, showCancel: false });
+				try { await apiSocialNotificationsRead(); this.socialUnread = 0; } catch (e) {}
 			},
 			onAddDishTap() {
 				if (this.tutorialStep === 1) {
@@ -1302,22 +1593,29 @@
 				const selectedName = encodeURIComponent(selectedDish.name || '炖猪脚');
 				const selectedImage = encodeURIComponent(selectedDish.image || '/static/onion_chicken.png');
 				const ids = this.selectedDishIds.join(',');
+				const items = encodeURIComponent(JSON.stringify(this.selectedDishIds.map(id => ({
+					dishId: Number(id),
+					quantity: this.getDishQuantity(id)
+				}))));
+				this.closeSelectedDrawer();
 				uni.navigateTo({
-					url: `/pages/submit-order/submit-order?count=${this.selectedDishIds.length}&name=${selectedName}&image=${selectedImage}&ids=${ids}`
+					url: `/pages/submit-order/submit-order?count=${this.selectedTotalCount}&name=${selectedName}&image=${selectedImage}&ids=${ids}&items=${items}`
 				});
 			},
 			onRefreshTap() {
 				if (this.isRefreshing) return;
 				this.isRefreshing = true;
 				uni.showToast({
-					title: '正在刷新菜品',
+					title: '正在刷新',
 					icon: 'loading',
 					duration: 800
 				});
-				setTimeout(() => {
+				Promise.all([
+					this.loadCategoryTree(),
+					this.loadShopInfo()
+				]).finally(() => {
 					this.isRefreshing = false;
-					this.loadDishes();
-				}, 1000);
+				});
 			},
 			nextTutorialStep() {
 				if (this.tutorialStep === 1) {
@@ -1329,7 +1627,7 @@
 					this.activeTab = 'private'; // Keep private tab to highlight today tab
 				} else if (this.tutorialStep === 4) {
 					// Finalize tutorial
-					this.activeTab = 'today'; // Switch to today's arrangement to show the content of that tab
+					this.activeTab = 'today';
 					this.tutorialStep = 0;
 					uni.showToast({
 						title: '新手引导完成！',
@@ -1348,6 +1646,99 @@
 			// Order page methods
 			switchOrderSubTab(tab) {
 				this.activeOrderSubTab = tab;
+			},
+			onOrderWhoTap() {
+				this.orderWho = '厨房订单';
+				this.loadMyOrders();
+				uni.showToast({ title: '已刷新订单', icon: 'none' });
+			},
+			onOrderTypeTap() {
+				const options = this.orderTypeOptions || ['全部'];
+				uni.showActionSheet({
+					itemList: options,
+					success: (res) => {
+						this.orderType = options[res.tapIndex] || '全部';
+					}
+				});
+			},
+			onOrderDateChange(e) {
+				this.orderDate = e && e.detail ? e.detail.value : '';
+			},
+			orderPreviewItems(order) {
+				return order && Array.isArray(order.items) ? order.items : [];
+			},
+			orderPreviewImage(order) {
+				const first = this.orderPreviewItems(order)[0] || {};
+				return first.dishCover || first.cover || '/static/onion_chicken.png';
+			},
+			orderDishCount(order) {
+				const total = Number(order && order.totalCount);
+				if (Number.isFinite(total) && total > 0) return total;
+				return this.orderPreviewItems(order).reduce((sum, item) => sum + (Number(item.quantity) || 1), 0) || 1;
+			},
+			orderDisplayName(order) {
+				if (order && order.receiverName) return order.receiverName;
+				return this.kitchenName || '我的厨房';
+			},
+			orderUserAvatar(order) {
+				return (order && (order.userAvatar || order.avatar)) || '/static/kitchen_avatar.png';
+			},
+			orderCardTime(t) {
+				if (!t) return '';
+				const raw = String(t).replace('T', ' ');
+				const datePart = raw.slice(0, 10);
+				const timePart = raw.slice(11, 16);
+				const now = new Date();
+				const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+				return datePart === today ? `今天 ${timePart}` : raw.slice(5, 16);
+			},
+			orderListStatusText(status) {
+				const s = String(status);
+				if (['0', '1', '2'].includes(s)) return '待完成';
+				if (s === '3') return '已完成';
+				if (s === '4') return '已取消';
+				if (s === '5') return '退款中';
+				return '进行中';
+			},
+			orderPrimaryText(order) {
+				const status = String(order && order.orderStatus);
+				if (this.orderCompletingId === (order && order.id)) return '完成中';
+				return ['0', '1', '2'].includes(status) ? '完成订单' : '查看详情';
+			},
+			async onOrderCompleteTap(order) {
+				if (!order) return;
+				if (!['0', '1', '2'].includes(String(order.orderStatus))) {
+					this.onOrderTap(order);
+					return;
+				}
+				if (this.orderCompletingId) return;
+				uni.showModal({
+					title: '完成订单',
+					content: '确认这笔订单已经处理完成了吗？',
+					confirmText: '完成',
+					success: async (res) => {
+						if (!res.confirm) return;
+						this.orderCompletingId = order.id;
+						try {
+							await ensureLogin();
+							const done = await apiOrderComplete(order.id);
+							const updated = (done && done.data) || { ...order, orderStatus: '3' };
+							const idx = this.myOrders.findIndex(item => String(item.id) === String(order.id));
+							if (idx > -1) {
+								this.myOrders.splice(idx, 1, { ...this.myOrders[idx], ...updated, orderStatus: updated.orderStatus || '3' });
+							}
+							uni.showToast({ title: '订单已完成', icon: 'none' });
+						} catch (e) {
+							uni.showToast({ title: '完成订单失败，请稍后重试', icon: 'none' });
+						} finally {
+							this.orderCompletingId = null;
+						}
+					}
+				});
+			},
+			onOrderBuyAgain(order) {
+				if (!order || !order.id) return;
+				uni.navigateTo({ url: `/pages/grocery-list/grocery-list?orderId=${order.id}` });
 			},
 
 			// Discover page methods
@@ -1415,7 +1806,8 @@
 				ensureLogin().then(() => apiShareLike(id)).then((res) => {
 					const liked = !!(res && res.data && res.data.liked);
 					post.liked = liked;
-					post.likes = Math.max(0, oldLikes + (liked ? 1 : -1));
+					const delta = liked === oldLiked ? 0 : (liked ? 1 : -1);
+					post.likes = Math.max(0, oldLikes + delta);
 					this.saveLikedSharePost(id, liked);
 				}).catch(() => {
 					post.liked = oldLiked;
@@ -1503,8 +1895,13 @@
 
 			// My page methods
 			copyUserCode() {
+				const code = String(this.userDisplayCode || '');
+				if (!code) {
+					uni.showToast({ title: '用户ID未生成', icon: 'none' });
+					return;
+				}
 				uni.setClipboardData({
-					data: '811576459061',
+					data: code,
 					success: () => {
 						uni.showToast({ title: 'ID已复制', icon: 'success' });
 					}
@@ -1521,6 +1918,15 @@
 					}
 					this.currentTabbar = 'order';
 					this.activeOrderSubTab = 'diary';
+				} else if (name === '情侣空间') {
+					uni.navigateTo({ url: '/pages/couple-space/couple-space' });
+				} else if (name === '多人聚餐') {
+					uni.navigateTo({ url: '/pages/group-dining/group-dining' });
+				} else if (name === '订单管理') {
+					this.currentTabbar = 'order';
+					this.activeOrderSubTab = 'order';
+				} else if (name === '申请加盟') {
+					uni.navigateTo({ url: '/pages/franchise-apply/franchise-apply' });
 				}
 			},
 			loadSettings() {
@@ -1529,18 +1935,20 @@
 				this.showRandom = uni.getStorageSync('showRandom') !== false;
 			},
 			onRandomTap() {
-				if (this.dishes.length === 0) return;
-				const randomIndex = Math.floor(Math.random() * this.dishes.length);
-				const selectedDish = this.dishes[randomIndex];
+				const pool = this.flatKitchenDishes;
+				if (pool.length === 0) return;
+				const randomIndex = Math.floor(Math.random() * pool.length);
+				const selectedDish = pool[randomIndex];
 				
 				if (!this.selectedDishIds.some(id => String(id) === String(selectedDish.id))) {
 					this.selectedDishIds.push(selectedDish.id);
+					this.$set ? this.$set(this.selectedDishQuantities, String(selectedDish.id), 1) : (this.selectedDishQuantities[String(selectedDish.id)] = 1);
 				}
-				uni.setStorageSync('selectedDishIds', this.selectedDishIds);
+				this.persistSelectedDishes();
 				
 				uni.showModal({
-					title: '今天吃这个！',
-					content: `为您随机推荐了：${selectedDish.name}，已帮您选中！`,
+					title: '今天吃这个',
+					content: `已随机选中：${selectedDish.name}`,
 					showCancel: false,
 					confirmText: '太棒了',
 					confirmColor: '#10B981'
@@ -6190,6 +6598,11 @@
 		background: #fbfefd;
 	}
 
+	.tab-kitchen .kitchen-category-body.no-level-one-strip {
+		min-height: calc(100vh - 596rpx);
+		border-top: 1rpx solid #eef1f0;
+	}
+
 	.tab-kitchen .kitchen-side-pane {
 		width: 188rpx;
 		min-height: calc(100vh - 682rpx);
@@ -7025,4 +7438,1123 @@
 	.comment-send.disabled {
 		background: #ccd6d2;
 	}
+
+	/* Order page lock: match the soft card layout in the reference. */
+	.tab-order {
+		background:
+			radial-gradient(circle at 94% 8%, rgba(53, 205, 164, 0.28) 0 54rpx, transparent 55rpx),
+			radial-gradient(circle at 9% 72%, rgba(53, 205, 164, 0.18) 0 7rpx, transparent 8rpx),
+			linear-gradient(180deg, #dff8f1 0, #f6fbf8 245rpx, #fbfdfc 246rpx, #fbfdfc 100%);
+	}
+
+	.tab-order .header-banner {
+		width: 750rpx;
+		height: 210rpx;
+		overflow: visible;
+	}
+
+	.tab-order .order-header-bg {
+		height: 300rpx;
+		background:
+			radial-gradient(circle at 3% 0%, rgba(53, 205, 164, 0.34) 0 46rpx, transparent 47rpx),
+			radial-gradient(circle at 88% 8%, rgba(53, 205, 164, 0.24) 0 72rpx, transparent 73rpx),
+			linear-gradient(180deg, #d9f7ef 0%, rgba(251, 253, 252, 0) 100%);
+	}
+
+	.tab-order .order-nav {
+		height: 94rpx;
+		padding: 0 246rpx 0 28rpx;
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		box-sizing: border-box;
+	}
+
+	.tab-order .order-nav-left {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		gap: 24rpx;
+		flex-wrap: nowrap;
+	}
+
+	.tab-order .filter-dropdown {
+		height: 60rpx;
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+	}
+
+	.tab-order .filter-text {
+		font-size: 32rpx;
+		line-height: 1;
+		font-weight: 500;
+		color: #202725;
+		white-space: nowrap;
+	}
+
+	.tab-order .filter-arrow {
+		width: 16rpx;
+		height: 16rpx;
+		margin-left: 12rpx;
+		border-right: 6rpx solid #202725;
+		border-bottom: 6rpx solid #202725;
+		border-left: 0;
+		border-top: 0;
+		transform: rotate(45deg) translateY(-4rpx);
+		box-sizing: border-box;
+	}
+
+	.tab-order .date-picker-btn {
+		width: 178rpx;
+		height: 62rpx;
+		padding: 0 22rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 34rpx;
+		background: rgba(251, 254, 253, 0.78);
+		box-shadow: 0 8rpx 28rpx rgba(48, 118, 102, 0.06);
+		box-sizing: border-box;
+	}
+
+	.tab-order .date-text {
+		max-width: 140rpx;
+		font-size: 26rpx;
+		line-height: 1;
+		font-weight: 700;
+		color: #8b9692;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tab-order .order-tab-content {
+		position: relative;
+		width: 750rpx;
+		min-height: calc(100vh - 332rpx);
+		padding: 0;
+		overflow: visible;
+		box-sizing: border-box;
+	}
+
+	.tab-order .order-top-row {
+		height: 106rpx;
+		margin: 0;
+		padding: 0 28rpx;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		box-sizing: border-box;
+		position: relative;
+		z-index: 2;
+	}
+
+	.tab-order .order-decor-avocado-card {
+		min-width: 350rpx;
+		height: 80rpx;
+		display: flex;
+		align-items: center;
+		position: relative;
+	}
+
+	.tab-order .avocado-img {
+		position: absolute;
+		left: -8rpx;
+		top: 10rpx;
+		width: 58rpx;
+		height: 58rpx;
+		opacity: 0.85;
+	}
+
+	.tab-order .order-decor-text {
+		margin-left: 0;
+		font-size: 29rpx;
+		line-height: 1;
+		font-weight: 500;
+		color: #202725;
+		white-space: nowrap;
+	}
+
+	.tab-order .highlight-num {
+		margin: 0 4rpx;
+		font-size: 33rpx;
+		font-weight: 900;
+		color: #35cda4;
+	}
+
+	.tab-order .order-sub-tabs {
+		width: 318rpx;
+		height: 66rpx;
+		padding: 4rpx;
+		display: flex;
+		align-items: center;
+		gap: 0;
+		border-radius: 36rpx;
+		background: rgba(251, 254, 253, 0.92);
+		box-shadow: 0 8rpx 28rpx rgba(48, 118, 102, 0.06);
+		box-sizing: border-box;
+	}
+
+	.tab-order .order-sub-tab {
+		flex: 1;
+		min-width: 0;
+		height: 58rpx;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 31rpx;
+		font-size: 28rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #8b9692;
+	}
+
+	.tab-order .order-sub-tab.active {
+		min-width: 0;
+		background: linear-gradient(90deg, #effdf8 0%, #dff9f0 100%);
+		color: #20c596;
+		box-shadow: inset 0 0 0 2rpx rgba(53, 205, 164, 0.12);
+	}
+
+	.tab-order .my-order-list {
+		position: relative;
+		z-index: 2;
+		padding: 10rpx 28rpx 40rpx;
+		box-sizing: border-box;
+	}
+
+	.tab-order .my-order-card {
+		width: 694rpx;
+		min-height: 498rpx;
+		margin: 0 0 26rpx;
+		padding: 28rpx;
+		border-radius: 26rpx;
+		background: rgba(252, 254, 253, 0.98);
+		box-shadow: 0 10rpx 32rpx rgba(36, 61, 54, 0.08);
+		box-sizing: border-box;
+	}
+
+	.tab-order .order-list-footer {
+		height: 74rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 22rpx;
+		color: #aaaead;
+		font-size: 30rpx;
+		font-weight: 700;
+	}
+
+	.tab-order .footer-line {
+		width: 140rpx;
+		height: 1rpx;
+		background: #edf1ef;
+	}
+
+	.tab-order .my-order-head {
+		height: 94rpx;
+		margin: 0;
+		display: flex;
+		align-items: center;
+	}
+
+	.tab-order .my-order-avatar {
+		width: 82rpx;
+		height: 82rpx;
+		border-radius: 50%;
+		background: #f3ebcf;
+		flex-shrink: 0;
+	}
+
+	.tab-order .my-order-user {
+		flex: 1;
+		min-width: 0;
+		margin-left: 18rpx;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.tab-order .my-order-name-row {
+		display: flex;
+		align-items: center;
+		gap: 14rpx;
+	}
+
+	.tab-order .my-order-user-name {
+		max-width: 245rpx;
+		font-size: 31rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tab-order .my-order-self {
+		height: 30rpx;
+		padding: 0 10rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 6rpx;
+		background: #eaf9fb;
+		font-size: 22rpx;
+		font-weight: 900;
+		color: #26b4c8;
+	}
+
+	.tab-order .my-order-time {
+		margin-top: 14rpx;
+		font-size: 25rpx;
+		line-height: 1;
+		font-weight: 700;
+		color: #98a19d;
+	}
+
+	.tab-order .my-order-tags {
+		width: 176rpx;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 12rpx;
+		flex-shrink: 0;
+	}
+
+	.tab-order .my-order-dine-tag {
+		height: 50rpx;
+		padding: 0 20rpx;
+		display: flex;
+		align-items: center;
+		gap: 10rpx;
+		border-radius: 26rpx;
+		background: #effcf8;
+		border: 2rpx solid rgba(53, 205, 164, 0.35);
+		font-size: 26rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #21c696;
+		box-sizing: border-box;
+	}
+
+	.tab-order .dine-tag-dot {
+		width: 24rpx;
+		height: 24rpx;
+		border-radius: 50%;
+		background: #21c696;
+		box-shadow: inset 0 0 0 8rpx #effcf8;
+	}
+
+	.tab-order .my-order-kitchen-tag {
+		height: 34rpx;
+		padding: 0 12rpx;
+		display: flex;
+		align-items: center;
+		gap: 6rpx;
+		border-radius: 8rpx;
+		background: #f4f6f5;
+		font-size: 24rpx;
+		line-height: 1;
+		font-weight: 700;
+		color: #8d9692;
+	}
+
+	.tab-order .my-order-kitchen-icon {
+		width: 26rpx;
+		height: 26rpx;
+	}
+
+	.tab-order .my-order-food-row {
+		height: 226rpx;
+		margin-top: 34rpx;
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+	}
+
+	.tab-order .my-order-food-img {
+		width: 154rpx;
+		height: 154rpx;
+		border-radius: 14rpx;
+		background: #f4f6f5;
+		flex-shrink: 0;
+	}
+
+	.tab-order .my-order-side-icons {
+		align-self: flex-end;
+		margin: 0 62rpx 16rpx 0;
+		display: flex;
+		align-items: center;
+		gap: 26rpx;
+		opacity: 0.95;
+	}
+
+	.tab-order .my-order-note-icon,
+	.tab-order .my-order-plate-icon {
+		width: 58rpx;
+		height: 58rpx;
+	}
+
+	.tab-order .my-order-summary {
+		display: block;
+		margin-top: 4rpx;
+		font-size: 27rpx;
+		line-height: 1;
+		font-weight: 700;
+		color: #98a19d;
+	}
+
+	.tab-order .my-order-divider {
+		height: 1rpx;
+		margin: 34rpx 0 26rpx;
+		background: #edf1ef;
+	}
+
+	.tab-order .my-order-actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 18rpx;
+	}
+
+	.tab-order .my-order-progress {
+		font-size: 31rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #f4a400;
+		flex-shrink: 0;
+	}
+
+	.tab-order .my-order-progress.st-3 {
+		color: #20c596;
+	}
+
+	.tab-order .my-order-progress.st-4,
+	.tab-order .my-order-progress.st-5 {
+		color: #9aa3a0;
+	}
+
+	.tab-order .my-order-action-group {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 14rpx;
+	}
+
+	.tab-order .my-order-action-btn {
+		height: 58rpx;
+		padding: 0 24rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10rpx;
+		border-radius: 31rpx;
+		border: 2rpx solid #20c596;
+		background: #fbfefd;
+		color: #20c596;
+		font-size: 27rpx;
+		line-height: 1;
+		font-weight: 900;
+		box-sizing: border-box;
+		white-space: nowrap;
+	}
+
+	.tab-order .my-order-action-btn.disabled {
+		opacity: 0.58;
+	}
+
+	.tab-order .action-check {
+		font-size: 35rpx;
+		line-height: 1;
+		transform: translateY(-1rpx);
+	}
+
+	.tab-order .action-cart {
+		width: 34rpx;
+		height: 34rpx;
+	}
+
+	.tab-order .my-order-more {
+		width: 58rpx;
+		height: 58rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		background: #f7f9f8;
+		color: #8b9692;
+		font-size: 24rpx;
+		font-weight: 900;
+		flex-shrink: 0;
+	}
+
+	.tab-order .order-empty-state {
+		position: relative;
+		z-index: 2;
+		padding-top: 330rpx;
+		padding-bottom: 310rpx;
+	}
+
+	.tab-order .diary-list {
+		position: relative;
+		z-index: 2;
+		padding: 10rpx 28rpx 40rpx;
+		box-sizing: border-box;
+	}
+
+	.tab-order .diary-publish-card,
+	.tab-order .diary-card {
+		width: 694rpx;
+		margin-bottom: 22rpx;
+		padding: 24rpx;
+		display: flex;
+		align-items: center;
+		border-radius: 24rpx;
+		background: rgba(252, 254, 253, 0.98);
+		box-shadow: 0 10rpx 30rpx rgba(36, 61, 54, 0.06);
+		box-sizing: border-box;
+	}
+
+	.tab-order .diary-publish-icon {
+		width: 70rpx;
+		height: 70rpx;
+		flex-shrink: 0;
+	}
+
+	.tab-order .diary-publish-copy,
+	.tab-order .diary-main {
+		flex: 1;
+		min-width: 0;
+		margin-left: 20rpx;
+		display: flex;
+		flex-direction: column;
+		gap: 12rpx;
+	}
+
+	.tab-order .diary-publish-title,
+	.tab-order .diary-title {
+		font-size: 30rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tab-order .diary-publish-desc,
+	.tab-order .diary-content,
+	.tab-order .diary-meta {
+		font-size: 24rpx;
+		line-height: 1.35;
+		font-weight: 700;
+		color: #8f9794;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tab-order .diary-img {
+		width: 124rpx;
+		height: 124rpx;
+		border-radius: 16rpx;
+		background: #f3f5f4;
+		flex-shrink: 0;
+	}
+
+	/* Selected dishes drawer, mirrors the original mini program cart sheet. */
+	.selected-drawer-mask {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		z-index: 150;
+		background: rgba(20, 24, 23, 0.58);
+	}
+
+	.selected-drawer {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 151;
+		width: 750rpx;
+		height: 884rpx;
+		padding: 28rpx 28rpx calc(132rpx + env(safe-area-inset-bottom));
+		border-radius: 24rpx 24rpx 0 0;
+		background: #fbfefd;
+		box-sizing: border-box;
+		box-shadow: 0 -16rpx 40rpx rgba(22, 34, 31, 0.12);
+	}
+
+	.selected-drawer-head {
+		height: 58rpx;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.selected-drawer-title {
+		font-size: 31rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+	}
+
+	.selected-clear {
+		height: 48rpx;
+		padding: 0 14rpx;
+		display: flex;
+		align-items: center;
+		gap: 6rpx;
+		border-radius: 8rpx;
+		background: #f5f7f6;
+		color: #9aa3a0;
+		font-size: 24rpx;
+		font-weight: 800;
+	}
+
+	.selected-clear.disabled {
+		opacity: 0.45;
+	}
+
+	.selected-clear-icon {
+		width: 28rpx;
+		height: 28rpx;
+		opacity: 0.62;
+	}
+
+	.selected-drawer-list {
+		height: 618rpx;
+		margin-top: 28rpx;
+	}
+
+	.selected-drawer-row {
+		height: 118rpx;
+		display: flex;
+		align-items: center;
+		margin-bottom: 20rpx;
+	}
+
+	.selected-drawer-img {
+		width: 118rpx;
+		height: 118rpx;
+		border-radius: 10rpx;
+		background: #f3f5f4;
+		flex-shrink: 0;
+	}
+
+	.selected-drawer-name {
+		flex: 1;
+		min-width: 0;
+		margin-left: 24rpx;
+		font-size: 30rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.qty-btn {
+		width: 42rpx;
+		height: 42rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		border: 4rpx solid #35cda4;
+		color: #35cda4;
+		font-size: 34rpx;
+		line-height: 1;
+		font-weight: 900;
+		box-sizing: border-box;
+	}
+
+	.qty-btn.plus {
+		background: #35cda4;
+		color: #fbfefd;
+		border-color: #35cda4;
+	}
+
+	.selected-drawer-qty {
+		width: 86rpx;
+		text-align: center;
+		font-size: 30rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+	}
+
+	.selected-drawer-empty {
+		height: 420rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 28rpx;
+		font-weight: 800;
+		color: #9aa3a0;
+	}
+
+	.selected-drawer-cart {
+		position: absolute;
+		left: 24rpx;
+		right: 24rpx;
+		bottom: calc(24rpx + env(safe-area-inset-bottom));
+		height: 92rpx;
+		padding: 0 14rpx 0 28rpx;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		border-radius: 48rpx;
+		background: #fbfefd;
+		box-shadow: 0 10rpx 34rpx rgba(31, 40, 38, 0.09);
+		box-sizing: border-box;
+	}
+
+	/* Reference-page fidelity pass: image-led categories and mint selection cards. */
+	.tab-kitchen .kitchen-avatar {
+		width: 116rpx;
+		height: 116rpx;
+		border-radius: 50%;
+		border: 3rpx solid #3d4642;
+		background: #f7d886;
+	}
+
+	.tab-kitchen .btn-manage,
+	.tab-kitchen .btn-add {
+		display: none;
+	}
+
+	.tab-kitchen .btn-search {
+		width: 118rpx;
+		background: transparent;
+		font-size: 27rpx;
+	}
+
+	.tab-kitchen .three-level-category-strip {
+		height: 134rpx;
+		padding: 0 94rpx 0 36rpx;
+	}
+
+	.tab-kitchen .level-one-text-scroll,
+	.tab-kitchen .level-one-text-list {
+		height: 134rpx;
+	}
+
+	.tab-kitchen .level-one-text-list {
+		align-items: flex-start;
+		gap: 48rpx;
+	}
+
+	.tab-kitchen .kitchen-category-label {
+		width: 104rpx;
+		height: 128rpx;
+		margin: 0;
+		flex-direction: column;
+		justify-content: flex-start;
+		gap: 6rpx;
+		font-size: 24rpx;
+		font-weight: 850;
+		color: #252b29;
+	}
+
+	.tab-kitchen .level-one-thumb-wrap {
+		width: 66rpx;
+		height: 66rpx;
+		margin-top: 10rpx;
+		padding: 4rpx;
+		border-radius: 50%;
+		background: #f5f7f6;
+		box-sizing: border-box;
+	}
+
+	.tab-kitchen .kitchen-category-label.active .level-one-thumb-wrap {
+		background: #20c998;
+	}
+
+	.tab-kitchen .level-one-thumb {
+		width: 58rpx;
+		height: 58rpx;
+		border-radius: 50%;
+		display: block;
+	}
+
+	.tab-kitchen .kitchen-category-label.active text {
+		padding: 4rpx 13rpx;
+		border-radius: 8rpx;
+		background: #1bc65a;
+		color: #fff;
+		white-space: nowrap;
+	}
+
+	.tab-kitchen .three-level-category-strip .category-strip-marker {
+		top: 52rpx;
+	}
+
+	.tab-kitchen .three-level-category-strip .refresh-action {
+		top: 36rpx;
+	}
+
+	.tab-kitchen .kitchen-side-pane {
+		background: #f6f7f8;
+	}
+
+	.tab-kitchen .kitchen-main-pane {
+		padding: 0 18rpx 0 20rpx;
+		box-sizing: border-box;
+	}
+
+	.tab-kitchen .category-main-head {
+		padding: 0 10rpx;
+		font-size: 25rpx;
+		color: #929b97;
+	}
+
+	.tab-kitchen .kitchen-dish-list {
+		padding: 0 0 220rpx;
+		gap: 16rpx;
+	}
+
+	.tab-kitchen .kitchen-dish-card {
+		height: 164rpx;
+		padding: 16rpx 18rpx;
+		border: 1rpx solid #b8e8da;
+		border-radius: 16rpx;
+		background: #f7fffc;
+		box-shadow: 0 3rpx 10rpx rgba(30, 178, 137, .035);
+	}
+
+	.tab-kitchen .kitchen-dish-card.selected {
+		background: #f3fffa;
+		border-color: #95ddc8;
+	}
+
+	.tab-kitchen .kitchen-dish-img {
+		width: 108rpx;
+		height: 108rpx;
+		border-radius: 9rpx;
+	}
+
+	.tab-kitchen .kitchen-dish-info {
+		height: 108rpx;
+		margin-left: 18rpx;
+		padding: 8rpx 0 10rpx;
+		justify-content: space-around;
+	}
+
+	.tab-kitchen .kitchen-dish-name {
+		font-size: 31rpx;
+	}
+
+	.tab-kitchen .kitchen-dish-sales {
+		font-size: 22rpx;
+		color: #929b97;
+	}
+
+	.tab-kitchen .dish-action-cell {
+		width: 62rpx;
+		height: 108rpx;
+	}
+
+	.tab-kitchen .dish-select-btn {
+		width: 54rpx;
+		height: 54rpx;
+		background: #17c454;
+		box-shadow: none;
+	}
+
+	/* Kitchen category lock: restores the old two-level browse layout. */
+	.tab-kitchen .private-content {
+		width: 750rpx;
+		background: #fbfefd;
+	}
+
+	.tab-kitchen .three-level-category-strip {
+		position: relative;
+		width: 750rpx;
+		height: 86rpx;
+		padding: 0 96rpx 0 46rpx;
+		display: flex;
+		align-items: center;
+		background: #fbfefd;
+		border-top: 0;
+		border-bottom: 1rpx solid #eef1f0;
+		box-sizing: border-box;
+		overflow: hidden;
+	}
+
+	.tab-kitchen .three-level-category-strip .category-strip-marker {
+		position: absolute;
+		left: 0;
+		top: 28rpx;
+		width: 7rpx;
+		height: 32rpx;
+		border-radius: 0 8rpx 8rpx 0;
+		background: #35cda4;
+	}
+
+	.tab-kitchen .level-one-text-scroll {
+		flex: 1;
+		width: auto;
+		height: 86rpx;
+		white-space: nowrap;
+		overflow: hidden;
+		box-sizing: border-box;
+	}
+
+	.tab-kitchen .level-one-text-list {
+		height: 86rpx;
+		display: inline-flex;
+		align-items: center;
+		min-width: 100%;
+		white-space: nowrap;
+	}
+
+	.tab-kitchen .kitchen-category-label {
+		height: 86rpx;
+		margin: 0 46rpx 0 0;
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+		font-size: 30rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+		white-space: nowrap;
+		letter-spacing: 0;
+	}
+
+	.tab-kitchen .kitchen-category-label.active {
+		color: #35cda4;
+	}
+
+	.tab-kitchen .three-level-category-strip .refresh-action {
+		position: absolute;
+		top: 17rpx;
+		right: 32rpx;
+		width: 52rpx;
+		height: 52rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.tab-kitchen .three-level-category-strip .svg-refresh {
+		width: 42rpx;
+		height: 42rpx;
+	}
+
+	.tab-kitchen .kitchen-category-body {
+		width: 750rpx;
+		min-height: calc(100vh - 682rpx);
+		display: flex;
+		align-items: stretch;
+		background: #fbfefd;
+	}
+
+	.tab-kitchen .kitchen-side-pane {
+		width: 188rpx;
+		min-height: calc(100vh - 682rpx);
+		flex-shrink: 0;
+		background: #f7f8fa;
+	}
+
+	.tab-kitchen .side-category {
+		position: relative;
+		width: 188rpx;
+		min-height: 108rpx;
+		padding: 0 16rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		text-align: center;
+		font-size: 28rpx;
+		line-height: 1.18;
+		font-weight: 800;
+		color: #333b38;
+		letter-spacing: 0;
+		word-break: keep-all;
+	}
+
+	.tab-kitchen .side-category.active {
+		background: #fbfefd;
+		color: #35cda4;
+		font-weight: 900;
+	}
+
+	.tab-kitchen .side-category.active::before {
+		content: "";
+		position: absolute;
+		left: 0;
+		top: 37rpx;
+		width: 7rpx;
+		height: 34rpx;
+		border-radius: 0 8rpx 8rpx 0;
+		background: #35cda4;
+	}
+
+	.tab-kitchen .kitchen-side-pane .category-manage {
+		width: 188rpx;
+		min-height: 118rpx;
+		margin-top: 10rpx;
+		padding: 0 14rpx 0 24rpx;
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 12rpx;
+		box-sizing: border-box;
+		background: transparent;
+	}
+
+	.tab-kitchen .kitchen-main-pane {
+		flex: 1;
+		min-width: 0;
+		background: #fbfefd;
+	}
+
+	.tab-kitchen .category-main-head {
+		height: 88rpx;
+		padding: 0 28rpx;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		box-sizing: border-box;
+		font-size: 34rpx;
+		line-height: 1;
+		font-weight: 900;
+		color: #202725;
+		letter-spacing: 0;
+	}
+
+	.tab-kitchen .category-main-head .main-refresh-action {
+		position: static;
+		width: 52rpx;
+		height: 52rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	.tab-kitchen .category-main-head .svg-refresh {
+		width: 42rpx;
+		height: 42rpx;
+	}
+
+	.tab-kitchen .kitchen-dish-list {
+		padding: 0 24rpx 210rpx 26rpx;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		box-sizing: border-box;
+	}
+
+	.tab-kitchen .kitchen-dish-card {
+		width: 100%;
+		height: 196rpx;
+		margin: 0;
+		padding: 18rpx 0;
+		display: flex;
+		align-items: center;
+		border: 0;
+		border-radius: 0;
+		background: #fbfefd;
+		box-shadow: none;
+		box-sizing: border-box;
+	}
+
+	.tab-kitchen .kitchen-dish-card.selected {
+		background: #f5fffb;
+	}
+
+	.tab-kitchen .kitchen-dish-img {
+		width: 160rpx;
+		height: 128rpx;
+		border-radius: 8rpx;
+		flex-shrink: 0;
+		background: #f3f5f4;
+	}
+
+	.tab-kitchen .kitchen-dish-info {
+		flex: 1;
+		min-width: 0;
+		height: 128rpx;
+		margin-left: 22rpx;
+		padding: 6rpx 0 8rpx;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		box-sizing: border-box;
+	}
+
+	.tab-kitchen .dish-action-cell {
+		width: 64rpx;
+		height: 128rpx;
+		margin-left: 8rpx;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		flex-shrink: 0;
+	}
+
+	.tab-kitchen .dish-select-btn {
+		width: 54rpx;
+		height: 54rpx;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		background: #35cda4;
+		color: #fbfefd;
+		box-shadow: 0 8rpx 18rpx rgba(53, 205, 164, 0.24);
+	}
+
+	/* Final kitchen overrides kept last so the reference layout wins. */
+	.tab-kitchen .kitchen-avatar { border-radius: 50%; border: 3rpx solid #3d4642; background: #f7d886; }
+	.tab-kitchen .btn-manage, .tab-kitchen .btn-add { display: none; }
+	.tab-kitchen .btn-search { width: 118rpx; background: transparent; font-size: 27rpx; }
+	.tab-kitchen .three-level-category-strip { height: 134rpx; padding: 0 94rpx 0 36rpx; }
+	.tab-kitchen .level-one-text-scroll, .tab-kitchen .level-one-text-list { height: 134rpx; }
+	.tab-kitchen .level-one-text-list { align-items: flex-start; gap: 48rpx; }
+	.tab-kitchen .kitchen-category-label { width: 104rpx; height: 128rpx; margin: 0; flex-direction: column; justify-content: flex-start; gap: 6rpx; font-size: 24rpx; color: #252b29; }
+	.tab-kitchen .level-one-thumb-wrap { width: 66rpx; height: 66rpx; margin-top: 10rpx; padding: 4rpx; border-radius: 50%; background: #f5f7f6; box-sizing: border-box; }
+	.tab-kitchen .kitchen-category-label.active .level-one-thumb-wrap { background: #20c998; }
+	.tab-kitchen .level-one-thumb { width: 58rpx; height: 58rpx; border-radius: 50%; display: block; }
+	.tab-kitchen .kitchen-category-label.active text { padding: 4rpx 13rpx; border-radius: 8rpx; background: #1bc65a; color: #fff; white-space: nowrap; }
+	.tab-kitchen .three-level-category-strip .category-strip-marker { top: 52rpx; }
+	.tab-kitchen .three-level-category-strip .refresh-action { top: 36rpx; }
+	.tab-kitchen .kitchen-side-pane { background: #f6f7f8; }
+	.tab-kitchen .kitchen-main-pane { padding: 0 18rpx 0 20rpx; box-sizing: border-box; }
+	.tab-kitchen .category-main-head { padding: 0 10rpx; font-size: 25rpx; color: #929b97; }
+	.tab-kitchen .kitchen-dish-list { padding: 0 0 220rpx; gap: 16rpx; }
+	.tab-kitchen .kitchen-dish-card { height: 164rpx; padding: 16rpx 18rpx; border: 1rpx solid #b8e8da; border-radius: 16rpx; background: #f7fffc; box-shadow: 0 3rpx 10rpx rgba(30,178,137,.035); }
+	.tab-kitchen .kitchen-dish-card.selected { background: #f3fffa; border-color: #95ddc8; }
+	.tab-kitchen .kitchen-dish-img { width: 108rpx; height: 108rpx; border-radius: 9rpx; }
+	.tab-kitchen .kitchen-dish-info { height: 108rpx; margin-left: 18rpx; padding: 8rpx 0 10rpx; justify-content: space-around; }
+	.tab-kitchen .kitchen-dish-name { font-size: 31rpx; }
+	.tab-kitchen .kitchen-dish-sales { font-size: 22rpx; color: #929b97; }
+	.tab-kitchen .dish-action-cell { width: 62rpx; height: 108rpx; }
+	.tab-kitchen .dish-select-btn { width: 54rpx; height: 54rpx; background: #17c454; box-shadow: none; }
+	.today-category-tabs { height: 92rpx; padding: 16rpx 28rpx; display: flex; align-items: center; gap: 18rpx; background: #fbfefd; box-sizing: border-box; }
+	.today-category-item { min-width: 132rpx; height: 58rpx; padding: 0 28rpx; display: flex; align-items: center; justify-content: center; border-radius: 30rpx; background: #f1f4f3; color: #343b38; font-size: 28rpx; font-weight: 800; box-sizing: border-box; }
+	.today-category-item.active { background: #35cda4; color: #fff; box-shadow: 0 8rpx 18rpx rgba(53,205,164,.2); }
+	.tab-my .my-swiper-menu-box { height: 356rpx; }
+	.tab-my .my-menu-swiper { height: 316rpx; }
+	.tab-my .my-grid-layout { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 138rpx; padding: 18rpx 12rpx; }
+	.social-entry { margin:0; padding:0; background:transparent; border:0; line-height:1; }
+	.social-entry::after { border:0; }
+	.social-entry-icon { width:70rpx; height:70rpx; display:flex; align-items:center; justify-content:center; border-radius:22rpx; background:#e9faf5; color:#22bf91; font-size:28rpx; font-weight:900; }
+	.social-entry.couple .social-entry-icon { background:#fff0f2; color:#f2768c; }
+	.social-entry.party .social-entry-icon { background:#fff5df; color:#eaa63c; }
+	.native-entry { display:flex; flex-direction:column; align-items:center; justify-content:center; }
 </style>

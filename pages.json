@@ -83,11 +83,30 @@
 				"navigationBarTitleText": "提交订单",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/grocery-list/grocery-list",
+			"style": {
+				"navigationBarTitleText": "去买菜",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/group-dining/group-dining",
+			"style": { "navigationBarTitleText": "多人聚餐", "navigationStyle": "custom" }
+		},
+		{
+			"path": "pages/couple-space/couple-space",
+			"style": { "navigationBarTitleText": "情侣空间", "navigationStyle": "custom" }
+		},
+		{
+			"path": "pages/franchise-apply/franchise-apply",
+			"style": { "navigationBarTitleText": "申请加盟", "navigationStyle": "custom" }
 		}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "管家",
+		"navigationBarTitleText": "管家私厨",
 		"navigationBarBackgroundColor": "#F8F8F8",
 		"backgroundColor": "#F8F8F8"
 	},

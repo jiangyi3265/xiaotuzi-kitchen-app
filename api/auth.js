@@ -1,10 +1,9 @@
-// 登录鉴权接口
 import { post, get } from '@/utils/request.js'
 import config from '@/config/index.js'
 
 const P = config.apiPrefix
 
-// 小程序登录：code 换 token（未配置 appid 时后端开发模式 code 即 openid）
+// 小程序登录：code 换 token
 export function apiLogin(data) {
 	return post(P + '/auth/login', data, { silent: true })
 }

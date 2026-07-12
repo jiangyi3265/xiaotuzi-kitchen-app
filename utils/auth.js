@@ -19,6 +19,10 @@ export function setUserInfo(user) {
 	}
 }
 
+export function getUserInfo() {
+	return uni.getStorageSync(config.userKey) || null
+}
+
 export function removeUserInfo() {
 	uni.removeStorageSync(config.userKey)
 }

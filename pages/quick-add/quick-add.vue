@@ -119,7 +119,8 @@
 
 <script>
 	import { apiCategoryTree, apiCategoryAdd } from '@/api/category.js'
-	import { apiDishAdd } from '@/api/dish.js'
+	import { apiDishAdd, apiDishList } from '@/api/dish.js'
+	import { apiSharePublish } from '@/api/share.js'
 	import { ensureLogin } from '@/utils/login.js'
 	import { uploadFile } from '@/utils/request.js'
 
@@ -168,13 +169,24 @@
 					}
 				});
 			},
-			onSearchCoverTap() {
-				// Preset a delicious fried rice cover image for demo search
-				this.coverImage = '/static/pineapple_rice.png';
-				uni.showToast({
-					title: '已自动匹配匹配封面图',
-					icon: 'none'
-				});
+			async onSearchCoverTap() {
+				try {
+					const res = await apiDishList({ pageNum: 1, pageSize: 50 });
+					const rows = ((res && res.rows) || []).filter(item => item.cover);
+					if (!rows.length) {
+						uni.showToast({ title: '暂无可复用封面，请上传图片', icon: 'none' });
+						return;
+					}
+					uni.showActionSheet({
+						itemList: rows.slice(0, 6).map(item => item.dishName || '菜品封面'),
+						success: (sheet) => {
+							const picked = rows[sheet.tapIndex];
+							if (picked && picked.cover) {
+								this.coverImage = picked.cover;
+							}
+						}
+					});
+				} catch (e) {}
 			},
 			openCategoryDrawer() {
 				this.showCategoryDrawer = true;
@@ -239,6 +251,16 @@
 						recipeOpen: '1',
 						remark: this.shareToExplore ? '' : '不分享到烟火食记'
 					});
+					if (this.shareToExplore) {
+						try {
+							await apiSharePublish({
+								title: trimmedName,
+								content: `新添加菜品：${trimmedName}`,
+								images: this.coverImage || '/static/onion_chicken.png',
+								tags: this.selectedCategory || ''
+							});
+						} catch (e) {}
+					}
 					uni.showToast({ title: '发布成功！', icon: 'success', duration: 1000 });
 					setTimeout(() => uni.navigateBack(), 1000);
 				} catch (e) {}

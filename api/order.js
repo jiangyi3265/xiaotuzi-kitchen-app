@@ -1,4 +1,3 @@
-// 订单接口（需登录）
 import { get, post } from '@/utils/request.js'
 import config from '@/config/index.js'
 
@@ -23,4 +22,9 @@ export function apiOrderDetail(id) {
 // 申请退款
 export function apiOrderRefund(id, data = {}) {
 	return post(P + '/order/refund/' + id, data)
+}
+
+// 用户确认完成订单
+export function apiOrderComplete(id) {
+	return post(P + '/order/complete/' + id)
 }
