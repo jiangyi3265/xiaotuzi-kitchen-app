@@ -4,6 +4,8 @@ const P=config.apiPrefix
 export const apiGroupCreate=data=>post(P+'/social/group/create',data)
 export const apiGroupJoin=data=>post(P+'/social/group/join',data)
 export const apiGroupDetail=id=>get(P+'/social/group/'+id)
+export const apiMyGroupRooms=()=>get(P+'/social/group/my')
+export const apiGroupQrCode=id=>get(P+'/social/group/qrcode/'+id)
 export const apiGroupAddItem=data=>post(P+'/social/group/item',data)
 export const apiCoupleCreate=data=>post(P+'/social/couple/create',data)
 export const apiCoupleJoin=data=>post(P+'/social/couple/join',data)
