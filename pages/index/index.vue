@@ -142,7 +142,7 @@
 					<view class="active-indicator" v-if="activeTab === 'private'"></view>
 				</view>
 				<view class="tab-item" :class="{ active: activeTab === 'today', 'highlight-tutorial': tutorialStep === 4 }" @tap="switchTab('today')">
-					<text class="tab-text">今日安排</text>
+					<text class="tab-text">其他</text>
 					<view class="active-indicator" v-if="activeTab === 'today'"></view>
 				</view>
 			</view>
