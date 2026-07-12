@@ -623,6 +623,11 @@
 				<image class="tabbar-icon" :src="currentTabbar === 'order' ? '/static/tab_order_active.svg' : '/static/tab_order.svg'" mode="aspectFit"></image>
 				<text class="tabbar-text">订单</text>
 			</view>
+
+			<view class="tab-bar-item" @tap="openGroupDining">
+				<image class="tabbar-icon" src="/static/tab_group.svg" mode="aspectFit"></image>
+				<text class="tabbar-text">多人聚餐</text>
+			</view>
 			
 			<view class="tab-bar-item" :class="{ active: currentTabbar === 'discover' }" @tap="switchTabbar('discover')">
 				<view class="tabbar-icon-container">
@@ -1533,6 +1538,10 @@
 				if (this.tutorialStep > 0) return; // Prevent switching tabbar during tutorial
 				this.currentTabbar = tabbar;
 				if (tabbar === 'my') this.loadSocialNotifications();
+			},
+			openGroupDining() {
+				if (this.tutorialStep > 0) return;
+				uni.navigateTo({ url: '/pages/group-dining/group-dining' });
 			},
 			async loadSocialNotifications() {
 				if (!getToken()) return;
