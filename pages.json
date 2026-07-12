@@ -106,6 +106,10 @@
 		{
 			"path": "pages/franchise-apply/franchise-apply",
 			"style": { "navigationBarTitleText": "申请加盟", "navigationStyle": "custom" }
+		},
+		{
+			"path": "pages/service-apply/service-apply",
+			"style": { "navigationBarTitleText": "服务人员申请", "navigationStyle": "custom" }
 		}
 	],
 	"globalStyle": {

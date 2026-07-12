@@ -506,6 +506,8 @@
 								<button class="my-grid-item-cell social-entry native-entry" open-type="share"><view class="social-entry-icon">享</view><text class="my-grid-item-label">分享好友</text></button>
 								<button class="my-grid-item-cell social-entry native-entry" open-type="contact"><view class="social-entry-icon">客</view><text class="my-grid-item-label">联系客服</text></button>
 								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('申请加盟')"><view class="social-entry-icon">盟</view><text class="my-grid-item-label">申请加盟</text></view>
+								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
+								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
 							</view>
 						</swiper-item>
 					</swiper>
@@ -1936,6 +1938,10 @@
 					this.activeOrderSubTab = 'order';
 				} else if (name === '申请加盟') {
 					uni.navigateTo({ url: '/pages/franchise-apply/franchise-apply' });
+				} else if (name === '配送员申请') {
+					uni.navigateTo({ url: '/pages/service-apply/service-apply?type=0' });
+				} else if (name === '代炒厨师申请') {
+					uni.navigateTo({ url: '/pages/service-apply/service-apply?type=1' });
 				}
 			},
 			loadSettings() {
@@ -8558,7 +8564,7 @@
 	.today-category-item { min-width: 132rpx; height: 58rpx; padding: 0 28rpx; display: flex; align-items: center; justify-content: center; border-radius: 30rpx; background: #f1f4f3; color: #343b38; font-size: 28rpx; font-weight: 800; box-sizing: border-box; }
 	.today-category-item.active { background: #35cda4; color: #fff; box-shadow: 0 8rpx 18rpx rgba(53,205,164,.2); }
 	.tab-my .my-swiper-menu-box { height: 356rpx; }
-	.tab-my .my-menu-swiper { height: 316rpx; }
+	.tab-my .my-menu-swiper { height: 454rpx; }
 	.tab-my .my-grid-layout { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 138rpx; padding: 18rpx 12rpx; }
 	.social-entry { margin:0; padding:0; background:transparent; border:0; line-height:1; }
 	.social-entry::after { border:0; }
