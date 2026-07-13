@@ -7,19 +7,6 @@
 					<image class="back-icon" src="/static/back_green.svg" mode="aspectFit"></image>
 				</view>
 				<text class="submit-title">提交订单</text>
-				<view class="submit-capsule">
-					<view class="capsule-dots">
-						<view class="dot"></view>
-						<view class="dot"></view>
-						<view class="dot"></view>
-					</view>
-					<view class="capsule-divider"></view>
-					<view class="capsule-minus"></view>
-					<view class="capsule-divider"></view>
-					<view class="capsule-circle">
-						<view class="circle-inner"></view>
-					</view>
-				</view>
 			</view>
 		</view>
 
@@ -612,8 +599,9 @@
 		width: 750rpx;
 		min-height: 100vh;
 		background:
-			linear-gradient(180deg, rgba(224,248,240,.68) 0, rgba(247,251,249,.96) 330rpx, #f8fbfa 520rpx),
-			url('/static/kitchen_banner.png') top center / 750rpx auto no-repeat;
+			linear-gradient(180deg, rgba(244,251,248,.18) 0, rgba(247,251,249,.72) 300rpx, #f8fbfa 540rpx),
+			url('/static/kitchen_banner.png') top center / 750rpx 750rpx no-repeat,
+			#f8fbfa;
 		padding-bottom: calc(128rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 		color: #202725;
@@ -661,67 +649,6 @@
 		line-height: 1;
 		font-weight: 900;
 		color: #1b2428;
-	}
-
-	.submit-capsule {
-		position: absolute;
-		right: 24rpx;
-		top: 20rpx;
-		width: 204rpx;
-		height: 64rpx;
-		border-radius: 34rpx;
-		background: rgba(251, 254, 253, 0.78);
-		border: 1rpx solid rgba(34, 46, 43, 0.08);
-		display: flex;
-		align-items: center;
-		justify-content: space-around;
-		padding: 0 18rpx;
-		box-sizing: border-box;
-	}
-
-	.capsule-dots {
-		width: 42rpx;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.dot {
-		width: 9rpx;
-		height: 9rpx;
-		border-radius: 50%;
-		background: #17201d;
-	}
-
-	.capsule-divider {
-		width: 1rpx;
-		height: 36rpx;
-		background: rgba(23, 32, 29, 0.12);
-	}
-
-	.capsule-minus {
-		width: 28rpx;
-		height: 5rpx;
-		border-radius: 4rpx;
-		background: #17201d;
-	}
-
-	.capsule-circle {
-		width: 36rpx;
-		height: 36rpx;
-		border-radius: 50%;
-		border: 6rpx solid #17201d;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		box-sizing: border-box;
-	}
-
-	.circle-inner {
-		width: 10rpx;
-		height: 10rpx;
-		border-radius: 50%;
-		background: #17201d;
 	}
 
 	.submit-content {
