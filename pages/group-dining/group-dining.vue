@@ -122,14 +122,15 @@
 					<view><text>￥{{ dish.virtualPrice || 0 }}</text><text class="dish-add" @tap="add(dish)">＋</text></view>
 				</view>
 			</view>
-			<view class="room-order-actions">
-				<view class="finish-button" v-if="isOwner" @tap="finishRoom">结束聚餐</view>
-				<view class="order-button" :class="{ disabled: !room.items.length }" @tap="submitGroupOrder">提交聚餐订单</view>
-			</view>
 			<view class="bottom-space"></view>
 		</scroll-view>
+		<view class="room-cart-bar" v-if="room">
+			<view class="room-cart-summary" @tap="cartVisible=true"><view class="room-cart-icon"><image src="/static/cart.svg" mode="aspectFit"></image><text>{{room.items.length}}</text></view><view><text>共同购物车</text><text>{{room.items.reduce((s,item)=>s+Number(item.quantity||0),0)}}份 · ￥{{room.total||0}}</text></view></view>
+			<view class="room-finish-compact" v-if="isOwner" @tap="finishRoom">结束</view>
+			<view class="room-submit-fixed" :class="{disabled:!room.items.length}" @tap="submitGroupOrder">提交订单</view>
+		</view>
 
-		<view class="modal-mask" v-if="qrVisible || settlementVisible" @tap="closeModal"></view>
+		<view class="modal-mask" v-if="qrVisible || settlementVisible || cartVisible" @tap="closeModal"></view>
 		<view class="qr-modal" v-if="qrVisible">
 			<text class="modal-title">扫码加入聚餐</text>
 			<text class="modal-desc">好友打开多人聚餐，点击“扫码加入”扫描此码</text>
@@ -143,6 +144,11 @@
 			<view class="settlement-total mint-box"><text>{{ room ? room.members.length : 0 }}人平均分摊</text><text class="settlement-value">￥{{ room ? room.aa || 0 : 0 }}/人</text></view>
 			<text class="modal-desc">当前为费用核算结果，微信实际收款需开通商户分账能力。</text>
 			<view class="modal-button" @tap="closeModal">知道了</view>
+		</view>
+		<view class="cart-sheet" v-if="cartVisible&&room">
+			<view class="cart-sheet-head"><view><text>共同购物车</text><text>{{room.items.length}}种菜，共￥{{room.total||0}}</text></view><text @tap="closeModal">×</text></view>
+			<scroll-view class="cart-sheet-list" scroll-y><view class="cart-sheet-row" v-for="item in room.items" :key="item.dishId"><image :src="item.cover||'/static/onion_chicken.png'" mode="aspectFill"/><view><text>{{item.dishName}}</text><text>{{item.addedBy}} 添加 · {{item.quantity}}份</text></view><text>￥{{item.subtotal}}</text></view><view class="rooms-empty" v-if="!room.items.length">购物车还是空的</view></scroll-view>
+			<view class="cart-sheet-submit" :class="{disabled:!room.items.length}" @tap="submitGroupOrder">提交聚餐订单</view>
 		</view>
 	</view>
 </template>
@@ -167,7 +173,8 @@
 				creating: false,
 				qrVisible: false,
 				qrImage: '',
-				settlementVisible: false
+				settlementVisible: false,
+				cartVisible: false
 			}
 		},
 		computed: {
@@ -349,6 +356,7 @@
 			closeModal() {
 				this.qrVisible = false
 				this.settlementVisible = false
+				this.cartVisible = false
 			},
 			handleBack() {
 				if (this.room) {
@@ -439,7 +447,7 @@
 	.dish-name { display: block; margin: 12rpx 4rpx; font-size: 25rpx; font-weight: 900; }
 	.dish-card > view { display: flex; align-items: center; justify-content: space-between; color: #28ba92; font-size: 23rpx; }
 	.dish-add { width: 45rpx; height: 45rpx; border-radius: 50%; background: #35cda4; color: #fff; text-align: center; line-height: 43rpx; font-size: 34rpx; }
-	.bottom-space { height: 80rpx; }
+	.bottom-space { height: 190rpx; }
 	.modal-mask { position: fixed; inset: 0; z-index: 20; background: rgba(17,35,30,.56); }
 	.qr-modal, .settlement-modal { position: fixed; left: 60rpx; right: 60rpx; top: 50%; z-index: 21; padding: 34rpx; border-radius: 30rpx; background: #fff; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; box-sizing: border-box; }
 	.modal-title { font-size: 34rpx; font-weight: 900; }
@@ -459,4 +467,5 @@
 	.order-button { flex: 1; background: #30cda3; color: #f8fffc; }
 	.order-button.disabled { opacity: .45; }
 	.mint-box { background: #eafaf5; color: #20b98f; }
+	.room-cart-bar{position:fixed;z-index:15;left:22rpx;right:22rpx;bottom:calc(20rpx + env(safe-area-inset-bottom));height:100rpx;padding:10rpx 12rpx 10rpx 18rpx;display:flex;align-items:center;gap:12rpx;border:1rpx solid #dcebe6;border-radius:52rpx;background:#fbfefd;box-shadow:0 12rpx 34rpx rgba(37,76,64,.15);box-sizing:border-box}.room-cart-summary{flex:1;min-width:0;display:flex;align-items:center}.room-cart-icon{position:relative;width:60rpx;height:60rpx;flex-shrink:0}.room-cart-icon image{width:60rpx;height:60rpx}.room-cart-icon>text{position:absolute;right:-5rpx;top:-7rpx;min-width:29rpx;height:29rpx;padding:0 5rpx;border-radius:15rpx;background:#f05f6c;color:#fff;text-align:center;line-height:29rpx;font-size:18rpx;font-weight:900;box-sizing:border-box}.room-cart-summary>view:last-child{margin-left:13rpx;display:flex;flex-direction:column}.room-cart-summary>view:last-child text:first-child{font-size:25rpx;font-weight:900}.room-cart-summary>view:last-child text:last-child{margin-top:5rpx;color:#72817c;font-size:19rpx}.room-finish-compact{height:66rpx;padding:0 18rpx;display:flex;align-items:center;border:1rpx solid #cbd8d4;border-radius:34rpx;color:#687771;font-size:22rpx;font-weight:800}.room-submit-fixed{height:72rpx;padding:0 28rpx;display:flex;align-items:center;border-radius:37rpx;background:#30cda3;color:#f8fffc;font-size:25rpx;font-weight:900}.room-submit-fixed.disabled,.cart-sheet-submit.disabled{opacity:.45}.cart-sheet{position:fixed;z-index:21;left:0;right:0;bottom:0;padding:28rpx 24rpx calc(26rpx + env(safe-area-inset-bottom));border-radius:30rpx 30rpx 0 0;background:#fbfefd;box-sizing:border-box}.cart-sheet-head{display:flex;align-items:center;justify-content:space-between}.cart-sheet-head>view{display:flex;flex-direction:column}.cart-sheet-head>view text:first-child{font-size:34rpx;font-weight:900}.cart-sheet-head>view text:last-child{margin-top:7rpx;color:#7b8a85;font-size:21rpx}.cart-sheet-head>text{font-size:48rpx;color:#73817c}.cart-sheet-list{max-height:52vh;margin-top:20rpx}.cart-sheet-row{min-height:108rpx;padding:12rpx 0;display:flex;align-items:center;border-bottom:1rpx solid #e8efec}.cart-sheet-row image{width:82rpx;height:82rpx;border-radius:13rpx}.cart-sheet-row>view{flex:1;margin-left:15rpx;display:flex;flex-direction:column}.cart-sheet-row>view text:first-child{font-size:26rpx;font-weight:900}.cart-sheet-row>view text:last-child{margin-top:7rpx;color:#83918c;font-size:20rpx}.cart-sheet-row>text:last-child{font-weight:900}.cart-sheet-submit{height:82rpx;margin-top:22rpx;display:flex;align-items:center;justify-content:center;border-radius:42rpx;background:#30cda3;color:#f8fffc;font-size:28rpx;font-weight:900}
 </style>

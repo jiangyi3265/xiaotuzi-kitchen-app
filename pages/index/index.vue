@@ -198,10 +198,6 @@
 							>
 								<text>{{ item.name }}</text>
 							</view>
-							<view class="category-manage" :class="{ 'highlight-tutorial': tutorialStep === 2 }" @tap="onCategoryManageTap">
-								<image class="svg-gear" src="/static/gear.svg" mode="aspectFit"></image>
-								<text class="category-text">分类管理</text>
-							</view>
 						</view>
 						<view class="kitchen-main-pane">
 							<view class="category-main-head" v-if="activeKitchenLevelTwo">
@@ -520,21 +516,21 @@
 						<!-- Slide 1 -->
 						<swiper-item>
 							<view class="my-grid-layout">
+								<view class="my-grid-item-cell social-entry couple" @tap="onMyMenuTap('情侣空间')"><view class="social-entry-icon">♥</view><text class="my-grid-item-label">情侣空间</text></view>
+								<view class="my-grid-item-cell social-entry party" @tap="onMyMenuTap('多人聚餐')"><view class="social-entry-icon">聚</view><text class="my-grid-item-label">多人聚餐</text></view>
+								<view class="my-grid-item-cell social-entry chef-entry" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
+								<view class="my-grid-item-cell social-entry feedback-entry" @tap="onMyMenuTap('反馈与建议')"><view class="social-entry-icon">议</view><text class="my-grid-item-label">反馈与建议</text></view>
 								<view class="my-grid-item-cell" @tap="onMyMenuTap('美食日历')" v-if="showDiary">
 									<view class="my-grid-icon-circle soft-bg-mint">
 										<image class="my-grid-svg" src="/static/my_calendar.svg" mode="aspectFit"></image>
 									</view>
 									<text class="my-grid-item-label">美食日历</text>
 								</view>
-								<view class="my-grid-item-cell social-entry couple" @tap="onMyMenuTap('情侣空间')"><view class="social-entry-icon">♥</view><text class="my-grid-item-label">情侣空间</text></view>
-								<view class="my-grid-item-cell social-entry party" @tap="onMyMenuTap('多人聚餐')"><view class="social-entry-icon">聚</view><text class="my-grid-item-label">多人聚餐</text></view>
 								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('订单管理')"><view class="social-entry-icon">单</view><text class="my-grid-item-label">订单管理</text></view>
 								<button class="my-grid-item-cell social-entry native-entry" open-type="share"><view class="social-entry-icon">享</view><text class="my-grid-item-label">分享好友</text></button>
 								<button class="my-grid-item-cell social-entry native-entry" open-type="contact"><view class="social-entry-icon">客</view><text class="my-grid-item-label">联系客服</text></button>
 								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('申请加盟')"><view class="social-entry-icon">盟</view><text class="my-grid-item-label">申请加盟</text></view>
 								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
-								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
-								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('反馈与建议')"><view class="social-entry-icon">议</view><text class="my-grid-item-label">反馈与建议</text></view>
 							</view>
 						</swiper-item>
 					</swiper>
@@ -576,7 +572,7 @@
 					<view class="sub-notice-left-side">
 						<image class="bell-alert-icon" src="/static/discover_bell.svg" mode="aspectFit"></image>
 						<view class="sub-notice-text-content">
-							<text class="sub-notice-main-text">情侣投喂消息</text>
+							<text class="sub-notice-main-text">消息通知</text>
 							<text class="sub-notice-sub-text">你有 {{ socialUnread }} 条新消息</text>
 						</view>
 					</view>
@@ -682,21 +678,10 @@
 				<view class="tooltip-content">
 					<text class="tooltip-text">点击这里开始添加您的第一道美味</text>
 					<view class="tooltip-action-btn" @tap.stop="nextTutorialStep">
-						<text>下一步(1/4)</text>
+						<text>下一步(1/3)</text>
 					</view>
 				</view>
 				<view class="tooltip-arrow arrow-up-right"></view>
-			</view>
-
-			<!-- Step 2 Tooltip -->
-			<view class="tooltip-bubble bubble-step-2" v-if="tutorialStep === 2">
-				<view class="tooltip-content">
-					<text class="tooltip-text">可以在这里对您的菜品进行快捷分类管理哦~</text>
-					<view class="tooltip-action-btn" @tap.stop="nextTutorialStep">
-						<text>下一步(2/4)</text>
-					</view>
-				</view>
-				<view class="tooltip-arrow arrow-up-left"></view>
 			</view>
 
 			<!-- Step 3 Tooltip -->
@@ -705,7 +690,7 @@
 				<view class="tooltip-content">
 					<text class="tooltip-text">选好菜品后，在这里可以一键邀请好友或自己下单~</text>
 					<view class="tooltip-action-btn" @tap.stop="nextTutorialStep">
-						<text>下一步(3/4)</text>
+						<text>下一步(2/3)</text>
 					</view>
 				</view>
 			</view>
@@ -715,7 +700,7 @@
 				<view class="tooltip-content">
 					<text class="tooltip-text">在这里可以查看并规划您今天的用餐安排哦~</text>
 					<view class="tooltip-action-btn" @tap.stop="nextTutorialStep">
-						<text>完成(4/4)</text>
+						<text>完成(3/3)</text>
 					</view>
 				</view>
 				<view class="tooltip-arrow arrow-up-left-tab"></view>
@@ -1131,6 +1116,7 @@
 			this.loadShareSquare();
 			this.loadShopInfo();
 			this.loadMyOrders();
+			this.loadSocialNotifications(true);
 			this.consumeAfterSubmitJump();
 		},
 		onShareAppMessage() {
@@ -1586,9 +1572,20 @@
 				if (this.tutorialStep > 0) return;
 				uni.navigateTo({ url: '/pages/group-dining/group-dining' });
 			},
-			async loadSocialNotifications() {
+			async loadSocialNotifications(announceFeed = false) {
 				if (!getToken()) return;
-				try { const res = await apiSocialNotifications(); const data = (res && res.data) || {}; this.socialUnread = Number(data.unread) || 0; this.socialNotifications = data.rows || []; } catch (e) {}
+				try {
+					const res = await apiSocialNotifications();
+					const data = (res && res.data) || {};
+					this.socialUnread = Number(data.unread) || 0;
+					this.socialNotifications = data.rows || [];
+					const feed = announceFeed ? this.socialNotifications.find(item => item.type === 'couple_feed' && String(item.readFlag) === '0') : null;
+					const shownId = uni.getStorageSync('shownCoupleFeedNoticeId');
+					if (feed && String(shownId) !== String(feed.id)) {
+						uni.setStorageSync('shownCoupleFeedNoticeId', feed.id);
+						uni.showModal({ title: feed.title || '收到一份异地投喂', content: feed.content || '对方给你下单了一份美食', confirmText: '查看订单', cancelText: '稍后', success: result => { if (result.confirm) { this.currentTabbar = 'order'; this.activeOrderSubTab = 'order'; } } });
+					}
+				} catch (e) {}
 			},
 			async showSocialNotifications() {
 				const content = this.socialNotifications.slice(0, 5).map(item => `${item.title}\n${item.content || ''}`).join('\n\n') || '暂无消息';
@@ -1671,8 +1668,6 @@
 			},
 			nextTutorialStep() {
 				if (this.tutorialStep === 1) {
-					this.tutorialStep = 2;
-				} else if (this.tutorialStep === 2) {
 					this.tutorialStep = 3;
 				} else if (this.tutorialStep === 3) {
 					this.tutorialStep = 4;
@@ -8620,7 +8615,7 @@
 	.today-order-bar button::after { border: 0; }
 	.today-order-submit { height: 70rpx; min-width: 136rpx; display: flex; align-items: center; justify-content: center; border-radius: 35rpx; background: #d9eee8; color: #fff; font-size: 25rpx; font-weight: 900; }
 	.today-order-submit.active { background: #35cda4; }
-	.tab-my .my-swiper-menu-box { height: 356rpx; }
+	.tab-my .my-swiper-menu-box { height: 470rpx; }
 	.tab-my .my-menu-swiper { height: 454rpx; }
 	.tab-my .my-grid-layout { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 138rpx; padding: 18rpx 12rpx; }
 	.social-entry { margin:0; padding:0; background:transparent; border:0; line-height:1; }
@@ -8628,6 +8623,8 @@
 	.social-entry-icon { width:70rpx; height:70rpx; display:flex; align-items:center; justify-content:center; border-radius:22rpx; background:#e9faf5; color:#22bf91; font-size:28rpx; font-weight:900; }
 	.social-entry.couple .social-entry-icon { background:#fff0f2; color:#f2768c; }
 	.social-entry.party .social-entry-icon { background:#fff5df; color:#eaa63c; }
+	.social-entry.chef-entry .social-entry-icon { background:#eef8ff; color:#398bb8; }
+	.social-entry.feedback-entry .social-entry-icon { background:#f2efff; color:#7865c4; }
 	.dish-inline-qty { display:flex; align-items:center; gap:9rpx; }
 	.tab-kitchen .dish-action-cell.quantity { width:150rpx; }
 	.dish-inline-qty .dish-qty-minus,.dish-inline-qty .dish-qty-plus { width:46rpx; height:46rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28rpx; font-weight:900; }
