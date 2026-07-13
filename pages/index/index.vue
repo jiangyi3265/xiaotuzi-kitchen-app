@@ -182,9 +182,6 @@
 								</view>
 							</view>
 						</scroll-view>
-						<view class="refresh-action" @tap="onRefreshTap">
-							<image class="svg-refresh" :class="{ rotating: isRefreshing }" src="/static/refresh.svg" mode="aspectFit"></image>
-						</view>
 					</view>
 
 					<view class="kitchen-category-body" :class="{ 'no-level-one-strip': kitchenCategoryTree.length <= 1 }">
@@ -202,9 +199,6 @@
 						<view class="kitchen-main-pane">
 							<view class="category-main-head" v-if="activeKitchenLevelTwo">
 								<text>{{ searchKeyword ? `搜索：${searchKeyword}` : activeKitchenLevelTwo.name }}</text>
-								<view class="refresh-action main-refresh-action" @tap="onRefreshTap">
-									<image class="svg-refresh" :class="{ rotating: isRefreshing }" src="/static/refresh.svg" mode="aspectFit"></image>
-								</view>
 							</view>
 							<view class="kitchen-dish-list" v-if="activeKitchenDishes.length > 0">
 								<view 
@@ -959,7 +953,6 @@
 				socialNotifications: [],
 				currentTabbar: 'kitchen', // 'kitchen' | 'order' | 'group' | 'discover' | 'my'
 				tutorialStep: 0,          // 0 to 4 (onboarding)
-				isRefreshing: false,
 				showAddDrawer: false,
 				showSelectedDrawer: false,
 				dishes: [],
@@ -1664,21 +1657,6 @@
 				this.closeSelectedDrawer();
 				uni.navigateTo({
 					url: `/pages/submit-order/submit-order?count=${this.selectedTotalCount}&name=${selectedName}&image=${selectedImage}&ids=${ids}&items=${items}`
-				});
-			},
-			onRefreshTap() {
-				if (this.isRefreshing) return;
-				this.isRefreshing = true;
-				uni.showToast({
-					title: '正在刷新',
-					icon: 'loading',
-					duration: 800
-				});
-				Promise.all([
-					this.loadCategoryTree(),
-					this.loadShopInfo()
-				]).finally(() => {
-					this.isRefreshing = false;
 				});
 			},
 			nextTutorialStep() {
@@ -8594,7 +8572,7 @@
 	.tab-kitchen .kitchen-avatar { border-radius: 50%; border: 3rpx solid #3d4642; background: #f7d886; }
 	.tab-kitchen .btn-manage, .tab-kitchen .btn-add { display: none; }
 	.tab-kitchen .btn-search { width: 118rpx; background: transparent; font-size: 27rpx; }
-	.tab-kitchen .three-level-category-strip { height: 134rpx; padding: 0 94rpx 0 36rpx; }
+	.tab-kitchen .three-level-category-strip { height: 134rpx; padding: 0 36rpx; }
 	.tab-kitchen .level-one-text-scroll, .tab-kitchen .level-one-text-list { height: 134rpx; }
 	.tab-kitchen .level-one-text-list { align-items: flex-start; gap: 48rpx; }
 	.tab-kitchen .kitchen-category-label { width: 104rpx; height: 128rpx; margin: 0; flex-direction: column; justify-content: flex-start; gap: 6rpx; font-size: 24rpx; color: #252b29; }
