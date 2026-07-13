@@ -282,11 +282,34 @@
 						<view class="today-category-item" :class="{ active: activeTodayCategory === 'hotpot' }" @tap="activeTodayCategory = 'hotpot'">火锅类</view>
 						<view class="today-category-item" :class="{ active: activeTodayCategory === 'barbecue' }" @tap="activeTodayCategory = 'barbecue'">烧烤</view>
 					</view>
-					<view class="alert-notice-wrapper">
+					<view class="today-dish-list" v-if="activeTodayDishes.length">
+						<view class="kitchen-dish-card today-dish-card" :class="{ selected: isDishSelected(dish.id) }" v-for="dish in activeTodayDishes" :key="dish.id" @tap="openDishDetail(dish.id)">
+							<image class="kitchen-dish-img" :src="dish.image" mode="aspectFill"></image>
+							<view class="kitchen-dish-info">
+								<text class="kitchen-dish-name">{{ dish.name }}</text>
+								<text class="kitchen-dish-sales">{{ dish.desc || '今日推荐 · 一起开饭' }}</text>
+								<text class="today-dish-price">￥{{ dish.price || 0 }}</text>
+							</view>
+							<view class="dish-action-cell" :class="{quantity:isDishSelected(dish.id)}">
+								<view class="dish-inline-qty" v-if="isDishSelected(dish.id)">
+									<text class="dish-qty-minus" @tap.stop="changeDishQuantity(dish.id,-1)">−</text>
+									<text class="dish-qty-number">{{getDishQuantity(dish.id)}}</text>
+									<text class="dish-qty-plus" @tap.stop="changeDishQuantity(dish.id,1)">＋</text>
+								</view>
+								<view v-else class="dish-select-btn" @tap.stop="toggleSelectDish(dish.id)"><text class="dish-plus-symbol">+</text></view>
+							</view>
+						</view>
+					</view>
+					<view class="alert-notice-wrapper" v-else>
 						<view class="alert-banner">
 							<image class="svg-info" src="/static/info.svg" mode="aspectFit"></image>
 							<text class="alert-text">{{ activeTodayCategory === 'hotpot' ? '火锅类' : '烧烤' }}暂时还没有菜品</text>
 						</view>
+					</view>
+					<view class="today-order-bar">
+						<view class="today-order-summary" @tap="openSelectedDrawer"><image src="/static/cart.svg" mode="aspectFit"></image><text>已选 {{ selectedTotalCount }} 份</text></view>
+						<button open-type="share" @tap="onInviteTap">邀请下单</button>
+						<view class="today-order-submit" :class="{ active: selectedTotalCount > 0 }" @tap="onDoneTap">去下单</view>
 					</view>
 				</view>
 			</view>
@@ -1017,6 +1040,9 @@
 						.some(value => String(value || '').toLowerCase().includes(keyword));
 				});
 			},
+			activeTodayDishes() {
+				return this.flatKitchenDishes.filter(dish => dish.todayType === this.activeTodayCategory);
+			},
 			activeKitchenDish() {
 				return this.activeKitchenDishes.find(item => item.id === this.activeKitchenDishId) || this.activeKitchenDishes[0] || null;
 			},
@@ -1162,7 +1188,9 @@
 						name: d.dishName,
 						desc: d.story || (d.categoryName ? '· ' + d.categoryName : ''),
 						image: d.cover || '/static/onion_chicken.png',
-						sales: d.sales || 0
+						sales: d.sales || 0,
+						price: d.virtualPrice || 0,
+						todayType: d.todayType || ''
 					});
 				});
 				const collectDishes = (node) => {
@@ -8581,6 +8609,17 @@
 	.today-category-tabs { height: 92rpx; padding: 16rpx 28rpx; display: flex; align-items: center; gap: 18rpx; background: #fbfefd; box-sizing: border-box; }
 	.today-category-item { min-width: 132rpx; height: 58rpx; padding: 0 28rpx; display: flex; align-items: center; justify-content: center; border-radius: 30rpx; background: #f1f4f3; color: #343b38; font-size: 28rpx; font-weight: 800; box-sizing: border-box; }
 	.today-category-item.active { background: #35cda4; color: #fff; box-shadow: 0 8rpx 18rpx rgba(53,205,164,.2); }
+	.today-content { min-height: calc(100vh - 540rpx); padding-bottom: 190rpx; background: #fbfefd; box-sizing: border-box; }
+	.today-dish-list { padding: 20rpx 24rpx 28rpx; display: flex; flex-direction: column; gap: 16rpx; }
+	.tab-kitchen .today-dish-card { width: 100%; box-sizing: border-box; }
+	.today-dish-price { color: #22b98e; font-size: 24rpx; font-weight: 900; }
+	.today-order-bar { position: fixed; z-index: 35; left: 24rpx; right: 24rpx; bottom: calc(132rpx + env(safe-area-inset-bottom)); height: 96rpx; padding: 10rpx 12rpx 10rpx 20rpx; display: flex; align-items: center; gap: 12rpx; border: 1rpx solid #e4efeb; border-radius: 48rpx; background: rgba(255,255,255,.97); box-shadow: 0 12rpx 34rpx rgba(43,85,72,.12); box-sizing: border-box; }
+	.today-order-summary { min-width: 180rpx; display: flex; align-items: center; gap: 10rpx; color: #53605c; font-size: 24rpx; font-weight: 800; }
+	.today-order-summary image { width: 48rpx; height: 48rpx; }
+	.today-order-bar button { height: 70rpx; padding: 0 24rpx; display: flex; align-items: center; justify-content: center; border: 2rpx solid #35cda4; border-radius: 35rpx; background: #fff; color: #24b98f; font-size: 24rpx; font-weight: 900; line-height: 1; }
+	.today-order-bar button::after { border: 0; }
+	.today-order-submit { height: 70rpx; min-width: 136rpx; display: flex; align-items: center; justify-content: center; border-radius: 35rpx; background: #d9eee8; color: #fff; font-size: 25rpx; font-weight: 900; }
+	.today-order-submit.active { background: #35cda4; }
 	.tab-my .my-swiper-menu-box { height: 356rpx; }
 	.tab-my .my-menu-swiper { height: 454rpx; }
 	.tab-my .my-grid-layout { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 138rpx; padding: 18rpx 12rpx; }
