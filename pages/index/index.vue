@@ -425,6 +425,11 @@
 				</view>
 			</view>
 
+			<!-- "多人聚餐" Content Tab View -->
+			<view class="tab-content group-tab-content" v-else-if="currentTabbar === 'group'">
+				<group-dining-view ref="groupDining" embedded />
+			</view>
+
 			<!-- "发现" Content Tab View -->
 			<view class="tab-content discover-tab-content" v-else-if="currentTabbar === 'discover'">
 				<view class="share-square-hero">
@@ -649,8 +654,8 @@
 				<text class="tabbar-text">订单</text>
 			</view>
 
-			<view class="tab-bar-item" @tap="openGroupDining">
-				<image class="tabbar-icon" src="/static/tab_group.svg" mode="aspectFit"></image>
+			<view class="tab-bar-item" :class="{ active: currentTabbar === 'group' }" @tap="switchTabbar('group')">
+				<image class="tabbar-icon" :src="currentTabbar === 'group' ? '/static/tab_group_active.svg' : '/static/tab_group.svg'" mode="aspectFit"></image>
 				<text class="tabbar-text">多人聚餐</text>
 			</view>
 			
@@ -942,15 +947,17 @@
 	import { getToken, getUserInfo, setUserInfo } from '@/utils/auth.js'
 	import { uploadFile } from '@/utils/request.js'
 	import { apiSocialNotifications, apiSocialNotificationsRead } from '@/api/social.js'
+	import GroupDiningView from '@/pages/group-dining/group-dining.vue'
 
 	export default {
+		components: { GroupDiningView },
 		data() {
 			return {
 				activeTab: 'private',     // 'private' | 'today'
 				activeTodayCategory: 'hotpot',
 				socialUnread: 0,
 				socialNotifications: [],
-				currentTabbar: 'kitchen', // 'kitchen' | 'order' | 'discover' | 'my'
+				currentTabbar: 'kitchen', // 'kitchen' | 'order' | 'group' | 'discover' | 'my'
 				tutorialStep: 0,          // 0 to 4 (onboarding)
 				isRefreshing: false,
 				showAddDrawer: false,
@@ -1118,17 +1125,29 @@
 			this.loadMyOrders();
 			this.loadSocialNotifications(true);
 			this.consumeAfterSubmitJump();
+			this.$nextTick(() => {
+				const groupView = this.$refs.groupDining;
+				if (this.currentTabbar === 'group' && groupView) {
+					if (groupView.room) groupView.refresh();
+					else groupView.loadRooms();
+				}
+			});
 		},
 		onShareAppMessage() {
+			if (this.currentTabbar === 'group' && this.$refs.groupDining) {
+				return this.$refs.groupDining.getSharePayload();
+			}
 			return this.buildInviteSharePayload();
 		},
 		onShareTimeline() {
-			const payload = this.buildInviteSharePayload();
+			const payload = this.currentTabbar === 'group' && this.$refs.groupDining
+				? this.$refs.groupDining.getSharePayload()
+				: this.buildInviteSharePayload();
 			const query = payload.path.indexOf('?') > -1 ? payload.path.split('?')[1] : '';
 			return {
 				title: payload.title,
 				query,
-				imageUrl: payload.imageUrl
+				imageUrl: payload.imageUrl || ''
 			};
 		},
 		methods: {
@@ -1567,10 +1586,6 @@
 				if (this.tutorialStep > 0) return; // Prevent switching tabbar during tutorial
 				this.currentTabbar = tabbar;
 				if (tabbar === 'my') this.loadSocialNotifications();
-			},
-			openGroupDining() {
-				if (this.tutorialStep > 0) return;
-				uni.navigateTo({ url: '/pages/group-dining/group-dining' });
 			},
 			async loadSocialNotifications(announceFeed = false) {
 				if (!getToken()) return;

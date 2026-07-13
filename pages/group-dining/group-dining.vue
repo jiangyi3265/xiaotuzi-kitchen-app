@@ -1,7 +1,7 @@
 <template>
-	<view class="page">
+	<view class="page" :class="{ embedded }">
 		<view class="header">
-			<view class="header-back" @tap="handleBack">‹</view>
+			<view class="header-back" v-if="!embedded || room" @tap="handleBack">‹</view>
 			<view class="header-copy">
 				<text class="header-title">多人聚餐</text>
 				<text class="header-subtitle">一起点菜，热闹开饭</text>
@@ -161,6 +161,9 @@
 	import { getUserInfo } from '@/utils/auth.js'
 
 	export default {
+		props: {
+			embedded: { type: Boolean, default: false }
+		},
 		data() {
 			return {
 				title: '周末聚餐',
@@ -187,7 +190,20 @@
 				return !!this.room && String(this.room.ownerUserId) === String(user.id || user.userId)
 			}
 		},
+		mounted() {
+			if (this.embedded) this.initialize()
+		},
 		onLoad(options = {}) {
+			this.initialize(options)
+		},
+		onShow() {
+			if (!this.room) this.loadRooms()
+		},
+		onShareAppMessage() {
+			return this.getSharePayload()
+		},
+		methods: {
+			initialize(options = {}) {
 			this.loadDishes()
 			this.loadCategories()
 			this.loadRooms()
@@ -195,18 +211,14 @@
 				this.joinCode = String(options.code).toUpperCase()
 				this.join()
 			}
-		},
-		onShow() {
-			if (!this.room) this.loadRooms()
-		},
-		onShareAppMessage() {
+			},
+			getSharePayload() {
 			const target = this.room || this.myRooms[0]
 			return {
 				title: target ? `${target.title}，来一起点菜` : '来小兔子厨房一起聚餐',
 				path: target ? `/pages/group-dining/group-dining?code=${target.roomCode}` : '/pages/group-dining/group-dining'
 			}
 		},
-		methods: {
 			async loadCategories() {
 				try {
 					const res = await apiCategoryTree()
@@ -370,8 +382,11 @@
 	}
 </script>
 
-<style>
+<style scoped>
 	.page { min-height: 100vh; background: #f4faf7; color: #1f2926; }
+	.page.embedded { min-height: calc(100vh - 122rpx - env(safe-area-inset-bottom)); }
+	.page.embedded .page-scroll { height: calc(100vh - 352rpx - env(safe-area-inset-bottom)); }
+	.page.embedded .room-cart-bar { bottom: calc(138rpx + env(safe-area-inset-bottom)); z-index: 90; }
 	.header { height: 230rpx; padding: calc(46rpx + env(safe-area-inset-top)) 32rpx 30rpx; display: flex; align-items: flex-end; background: radial-gradient(circle at 88% 18%, rgba(255,255,255,.28) 0 82rpx, transparent 84rpx), linear-gradient(145deg, #28cfa3, #7be2c2); box-sizing: border-box; color: #fff; }
 	.header-back { width: 62rpx; height: 62rpx; margin-right: 20rpx; border-radius: 50%; background: rgba(255,255,255,.94); color: #268c72; font-size: 52rpx; line-height: 55rpx; text-align: center; }
 	.header-copy { flex: 1; display: flex; flex-direction: column; }
