@@ -154,7 +154,7 @@
 				<view class="pickup-section" v-if="selectedService === '附近的菜市场'">
 					<view class="market-mode-tabs">
 						<view :class="{active:marketMode==='nearby'}" @tap="marketMode='nearby'"><text>附近菜市场</text><small>查看地址</small></view>
-						<view :class="{active:marketMode==='stockGroup'}" @tap="marketMode='stockGroup'"><text>商家提前备货群</text><small>扫码入群</small></view>
+						<view :class="{active:marketMode==='stockGroup'}" @tap="marketMode='stockGroup'"><text>商家提前备货群</text><small>生成备货清单</small></view>
 					</view>
 					<view v-if="marketMode==='nearby'">
 					<view class="pickup-head">
@@ -172,12 +172,25 @@
 						</view>
 					</view>
 					</view>
-					<view class="stock-group-box" v-else>
-						<image v-if="storeInfo.stockGroupQr" :src="storeInfo.stockGroupQr" mode="aspectFit" @tap="previewStockGroupQr"></image>
-						<view class="stock-group-copy">
-							<text class="stock-group-name">{{storeInfo.stockGroupName||'商家提前备货群'}}</text>
-							<text class="stock-group-notice">{{storeInfo.stockGroupNotice||'商家暂未配置备货群，请联系客服。'}}</text>
-							<text class="stock-group-action" v-if="storeInfo.stockGroupQr" @tap="previewStockGroupQr">查看大图，长按识别二维码</text>
+					<view class="stock-group-section" v-else>
+						<view class="stock-group-box">
+							<image v-if="storeInfo.stockGroupQr" :src="storeInfo.stockGroupQr" mode="aspectFit" @tap="previewStockGroupQr"></image>
+							<view class="stock-group-copy">
+								<text class="stock-group-name">{{storeInfo.stockGroupName||'商家提前备货群'}}</text>
+								<text class="stock-group-notice">{{storeInfo.stockGroupNotice||'商家暂未配置备货群，可先复制清单后联系客服发送。'}}</text>
+								<text class="stock-group-action" v-if="storeInfo.stockGroupQr" @tap="previewStockGroupQr">查看群二维码</text>
+							</view>
+						</view>
+						<view class="stock-list-panel">
+							<view class="stock-list-head">
+								<view><text>备货清单</text><text>{{displaySelectedDishes.length}} 种菜，共 {{totalDishCount}} 份</text></view>
+								<view class="stock-copy-button" @tap="copyStockList"><text>一键复制</text></view>
+							</view>
+							<view class="stock-list-row" v-for="(dish,index) in displaySelectedDishes" :key="dish.id">
+								<text>{{index+1}}. {{dish.name}}</text><text>× {{dish.quantity}}</text>
+							</view>
+							<view class="stock-remark-preview" v-if="remark.trim()"><text>备注</text><text>{{remark.trim()}}</text></view>
+							<text class="stock-list-tip">提交后仍可复制，粘贴到微信发给商家确认备货。</text>
 						</view>
 					</view>
 				</view>
@@ -231,8 +244,8 @@
 
 		<view class="submit-bottom-bar">
 			<text class="total-text">共 {{ totalDishCount }} 道</text>
-			<view class="submit-btn" @tap="submitOrder">
-				<text>提交订单</text>
+			<view class="submit-btn" :class="{disabled:submitting}" @tap="submitOrder">
+				<text>{{ isStockGroup ? '提交备货清单' : '提交订单' }}</text>
 			</view>
 		</view>
 	</view>
@@ -290,6 +303,7 @@
 				regionApplication: null,
 				showRegionApply: false,
 				regionSubmitting: false,
+				submitting: false,
 				regionForm: { applicantName:'', phone:'', province:'', city:'', district:'', address:'', experience:'' }
 			}
 		},
@@ -311,6 +325,22 @@
 			},
 			totalDishCount() {
 				return this.displaySelectedDishes.reduce((sum, dish) => sum + (Number(dish.quantity) || 1), 0);
+			},
+			isStockGroup() {
+				return this.selectedService === '附近的菜市场' && this.marketMode === 'stockGroup';
+			},
+			stockListText() {
+				const lines = ['【商家提前备货清单】'];
+				if (this.storeInfo.name) lines.push(`商家：${this.storeInfo.name}`);
+				if (this.storeInfo.stockGroupName) lines.push(`备货群：${this.storeInfo.stockGroupName}`);
+				lines.push('', '菜品清单：');
+				this.displaySelectedDishes.forEach((dish, index) => {
+					lines.push(`${index + 1}. ${dish.name} × ${dish.quantity}`);
+				});
+				lines.push('', `合计：${this.displaySelectedDishes.length} 种菜，共 ${this.totalDishCount} 份`);
+				if (this.remark.trim()) lines.push(`备注：${this.remark.trim()}`);
+				lines.push('请商家确认库存和备货时间，谢谢。');
+				return lines.join('\n');
 			}
 		},
 		onLoad(options = {}) {
@@ -483,7 +513,27 @@
 				if (!this.storeInfo.stockGroupQr) return;
 				uni.previewImage({ current: this.storeInfo.stockGroupQr, urls: [this.storeInfo.stockGroupQr] });
 			},
+			copyStockList() {
+				if (!this.displaySelectedDishes.length) {
+					uni.showToast({ title: '暂无可复制的菜品', icon: 'none' });
+					return Promise.resolve(false);
+				}
+				return new Promise(resolve => {
+					uni.setClipboardData({
+						data: this.stockListText,
+						success: () => {
+							uni.showToast({ title: '备货清单已复制', icon: 'success' });
+							resolve(true);
+						},
+						fail: () => {
+							uni.showToast({ title: '复制失败，请稍后重试', icon: 'none' });
+							resolve(false);
+						}
+					});
+				});
+			},
 			async submitOrder() {
+				if (this.submitting) return;
 				if (this.needDelivery) {
 					if (!this.deliveryName.trim()) {
 						uni.showToast({ title: '请填写收货人姓名', icon: 'none' });
@@ -505,6 +555,7 @@
 				}
 
 				try {
+					this.submitting = true;
 					await ensureLogin();
 					const chefId = (this.selectedService === '厨师代炒' && /^\d+$/.test(String(this.selectedChefId)))
 						? this.selectedChefId : null;
@@ -535,9 +586,22 @@
 						uni.removeStorageSync('selectedDishQuantities');
 					}
 					uni.setStorageSync('afterSubmitGoOrder', '1');
-					uni.showToast({ title: '下单成功', icon: 'success' });
-					setTimeout(() => uni.navigateBack(), 900);
-				} catch (e) {}
+					if (this.isStockGroup) {
+						uni.showModal({
+							title: '备货清单已提交',
+							content: '复制清单后，粘贴到微信发送给商家确认备货。',
+							confirmText: '复制清单',
+							cancelText: '查看订单',
+							success: async result => {
+								if (result.confirm) await this.copyStockList();
+								setTimeout(() => uni.navigateBack(), result.confirm ? 700 : 0);
+							}
+						});
+					} else {
+						uni.showToast({ title: '下单成功', icon: 'success' });
+						setTimeout(() => uni.navigateBack(), 900);
+					}
+				} catch (e) {} finally { this.submitting = false; }
 			}
 		}
 	}
@@ -1138,18 +1202,33 @@
 		line-height: 1;
 		font-weight: 900;
 	}
+	.submit-btn.disabled { opacity:.55; }
 	.service-chip.unavailable { background:#f2f4f3; color:#9aa3a0; border-color:#e6e9e8; }
 	.market-mode-tabs { display:grid; grid-template-columns:1fr 1fr; gap:12rpx; margin-bottom:20rpx; }
 	.market-mode-tabs>view { min-height:78rpx; padding:14rpx 18rpx; border:1rpx solid #e3ebe8; border-radius:17rpx; background:#f2f6f4; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box; }
 	.market-mode-tabs>view.active { border-color:#7bd9bd; background:#e8faf4; color:#22a982; }
 	.market-mode-tabs text { font-size:25rpx; font-weight:900; }
 	.market-mode-tabs small { margin-top:5rpx; color:#89958f; font-size:19rpx; }
+	.stock-group-section { display:flex; flex-direction:column; gap:16rpx; }
 	.stock-group-box { min-height:210rpx; padding:20rpx; border-radius:18rpx; background:#f3f8f6; display:flex; gap:20rpx; box-sizing:border-box; }
 	.stock-group-box image { width:170rpx; height:170rpx; flex:none; border-radius:13rpx; background:#fbfefd; }
 	.stock-group-copy { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; }
 	.stock-group-name { font-size:28rpx; font-weight:900; }
 	.stock-group-notice { margin-top:10rpx; color:#77847f; font-size:22rpx; line-height:1.5; }
 	.stock-group-action { margin-top:13rpx; color:#22b58d; font-size:21rpx; font-weight:800; }
+	.stock-list-panel { padding:22rpx; border:1rpx solid #dcebe6; border-radius:20rpx; background:#fbfefd; }
+	.stock-list-head { display:flex; align-items:center; justify-content:space-between; gap:20rpx; padding-bottom:16rpx; border-bottom:1rpx solid #e6efec; }
+	.stock-list-head>view:first-child { min-width:0; display:flex; flex-direction:column; }
+	.stock-list-head>view:first-child text:first-child { color:#24302c; font-size:29rpx; font-weight:900; }
+	.stock-list-head>view:first-child text:last-child { margin-top:6rpx; color:#7b8883; font-size:20rpx; }
+	.stock-copy-button { min-width:150rpx; height:64rpx; padding:0 20rpx; display:flex; align-items:center; justify-content:center; border:1rpx solid #70d4b6; border-radius:33rpx; color:#20a981; font-size:23rpx; font-weight:900; box-sizing:border-box; }
+	.stock-list-row { min-height:68rpx; display:flex; align-items:center; justify-content:space-between; gap:20rpx; border-bottom:1rpx solid #edf3f1; color:#34403c; font-size:24rpx; }
+	.stock-list-row text:first-child { flex:1; min-width:0; }
+	.stock-list-row text:last-child { color:#20a981; font-weight:900; flex-shrink:0; }
+	.stock-remark-preview { padding:14rpx 0 4rpx; display:flex; align-items:flex-start; gap:18rpx; font-size:22rpx; line-height:1.55; }
+	.stock-remark-preview text:first-child { color:#20a981; font-weight:900; flex-shrink:0; }
+	.stock-remark-preview text:last-child { color:#65736e; word-break:break-all; }
+	.stock-list-tip { display:block; margin-top:16rpx; color:#86928e; font-size:20rpx; line-height:1.5; }
 	.service-unavailable { margin-left:6rpx; font-size:20rpx; color:#f08b70; }
 	.region-mask { position:fixed; inset:0; z-index:80; background:rgba(25,31,29,.48); }
 	.region-sheet { position:fixed; left:0; right:0; bottom:0; z-index:81; padding:30rpx 28rpx calc(30rpx + env(safe-area-inset-bottom)); border-radius:30rpx 30rpx 0 0; background:#fbfefd; box-sizing:border-box; }
