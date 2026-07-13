@@ -509,60 +509,24 @@
 					</view>
 				</view>
 
-				<!-- Grid swiper menu -->
+				<!-- Function menu -->
 				<view class="my-swiper-menu-box">
-					<swiper class="my-menu-swiper" :indicator-dots="false" @change="onSwiperChange">
-						<!-- Slide 1 -->
-						<swiper-item>
-							<view class="my-grid-layout">
-								<view class="my-grid-item-cell social-entry couple" @tap="onMyMenuTap('情侣空间')"><view class="social-entry-icon">♥</view><text class="my-grid-item-label">情侣空间</text></view>
-								<view class="my-grid-item-cell social-entry party" @tap="onMyMenuTap('多人聚餐')"><view class="social-entry-icon">聚</view><text class="my-grid-item-label">多人聚餐</text></view>
-								<view class="my-grid-item-cell social-entry chef-entry" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
-								<view class="my-grid-item-cell social-entry feedback-entry" @tap="onMyMenuTap('反馈与建议')"><view class="social-entry-icon">议</view><text class="my-grid-item-label">反馈与建议</text></view>
-								<view class="my-grid-item-cell" @tap="onMyMenuTap('美食日历')" v-if="showDiary">
-									<view class="my-grid-icon-circle soft-bg-mint">
-										<image class="my-grid-svg" src="/static/my_calendar.svg" mode="aspectFit"></image>
-									</view>
-									<text class="my-grid-item-label">美食日历</text>
-								</view>
-								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('订单管理')"><view class="social-entry-icon">单</view><text class="my-grid-item-label">订单管理</text></view>
-								<button class="my-grid-item-cell social-entry native-entry" open-type="share"><view class="social-entry-icon">享</view><text class="my-grid-item-label">分享好友</text></button>
-								<button class="my-grid-item-cell social-entry native-entry" open-type="contact"><view class="social-entry-icon">客</view><text class="my-grid-item-label">联系客服</text></button>
-								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('申请加盟')"><view class="social-entry-icon">盟</view><text class="my-grid-item-label">申请加盟</text></view>
-								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
+					<view class="my-grid-layout">
+						<view class="my-grid-item-cell social-entry couple" @tap="onMyMenuTap('情侣空间')"><view class="social-entry-icon">♥</view><text class="my-grid-item-label">情侣空间</text></view>
+						<view class="my-grid-item-cell social-entry party" @tap="onMyMenuTap('多人聚餐')"><view class="social-entry-icon">聚</view><text class="my-grid-item-label">多人聚餐</text></view>
+						<view class="my-grid-item-cell social-entry chef-entry" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
+						<view class="my-grid-item-cell social-entry feedback-entry" @tap="onMyMenuTap('反馈与建议')"><view class="social-entry-icon">议</view><text class="my-grid-item-label">反馈与建议</text></view>
+						<view class="my-grid-item-cell" @tap="onMyMenuTap('美食日历')" v-if="showDiary">
+							<view class="my-grid-icon-circle soft-bg-mint">
+								<image class="my-grid-svg" src="/static/my_calendar.svg" mode="aspectFit"></image>
 							</view>
-						</swiper-item>
-					</swiper>
-
-					<!-- Page indicator dots -->
-					<view class="my-swiper-dots single-dot">
-						<view class="my-indicator-dot" :class="{ active: myGridPageIndex === 0 }"></view>
-					</view>
-				</view>
-
-				<!-- Contribution Activity card -->
-				<view class="my-activity-wall-card">
-					<view class="activity-wall-header">
-						<text class="activity-wall-title">厨房动态墙</text>
-						<image class="activity-wall-help-icon" src="/static/question_circle.svg" mode="aspectFit"></image>
-					</view>
-
-					<view class="activity-wall-months-labels">
-						<text class="month-txt-label">月</text>
-						<text class="month-txt-label">2月</text>
-						<text class="month-txt-label">3月</text>
-						<text class="month-txt-label">4月</text>
-						<text class="month-txt-label">5月</text>
-						<text class="month-txt-label">6月</text>
-					</view>
-
-					<view class="activity-wall-squares-grid">
-						<view 
-							class="activity-wall-square" 
-							v-for="(level, idx) in activityCells" 
-							:key="idx"
-							:class="'square-lvl-' + level"
-						></view>
+							<text class="my-grid-item-label">美食日历</text>
+						</view>
+						<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('订单管理')"><view class="social-entry-icon">单</view><text class="my-grid-item-label">订单管理</text></view>
+						<button class="my-grid-item-cell social-entry native-entry" open-type="share"><view class="social-entry-icon">享</view><text class="my-grid-item-label">分享好友</text></button>
+						<button class="my-grid-item-cell social-entry native-entry" open-type="contact"><view class="social-entry-icon">客</view><text class="my-grid-item-label">联系客服</text></button>
+						<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('申请加盟')"><view class="social-entry-icon">盟</view><text class="my-grid-item-label">申请加盟</text></view>
+						<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
 					</view>
 				</view>
 
@@ -969,8 +933,6 @@
 				refundingOrder: false,
 				orderCompletingId: null,
 				activeOrderSubTab: 'order', // 'order' | 'diary'
-				myGridPageIndex: 0,
-				activityCells: [],
 				// 分享广场：完全靠 loadShareSquare 填充；为空显示空状态
 				shareSquarePosts: [],
 				publishingShare: false,
@@ -1099,7 +1061,6 @@
 		},
 		onLoad(options = {}) {
 			this.tutorialStep = 0;
-			this.generateActivityCells();
 			this.applyInviteOptions(options);
 		},
 		onShow() {
@@ -1379,15 +1340,6 @@
 					uni.setStorageSync('announcement_dismissed', this.announcement.id);
 				}
 				this.showAnnouncement = false;
-			},
-			generateActivityCells() {
-				// Generate an empty contribution wall like the reference screen.
-				const cells = [];
-				for (let i = 0; i < 168; i++) {
-					let lvl = 0;
-					cells.push(lvl);
-				}
-				this.activityCells = cells;
 			},
 			loadDishes() {
 				this.dishes = uni.getStorageSync('dishes') || [];
@@ -1949,9 +1901,6 @@
 						uni.showToast({ title: 'ID已复制', icon: 'success' });
 					}
 				});
-			},
-			onSwiperChange(e) {
-				this.myGridPageIndex = e.detail.current;
 			},
 			onMyMenuTap(name) {
 				if (name === '美食日历') {
@@ -8608,9 +8557,9 @@
 	.today-order-bar button::after { border: 0; }
 	.today-order-submit { height: 70rpx; min-width: 136rpx; display: flex; align-items: center; justify-content: center; border-radius: 35rpx; background: #d9eee8; color: #fff; font-size: 25rpx; font-weight: 900; }
 	.today-order-submit.active { background: #35cda4; }
-	.tab-my .my-swiper-menu-box { height: 470rpx; }
-	.tab-my .my-menu-swiper { height: 454rpx; }
-	.tab-my .my-grid-layout { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 138rpx; padding: 18rpx 12rpx; }
+	.tab-my .my-swiper-menu-box { height: auto; }
+	.tab-my .my-grid-layout { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 146rpx; row-gap: 24rpx; padding: 18rpx 12rpx; box-sizing: border-box; }
+	.tab-my .my-grid-item-label { min-height: 56rpx; display: flex; align-items: flex-start; justify-content: center; text-align: center; line-height: 28rpx; }
 	.social-entry { margin:0; padding:0; background:transparent; border:0; line-height:1; }
 	.social-entry::after { border:0; }
 	.social-entry-icon { width:70rpx; height:70rpx; display:flex; align-items:center; justify-content:center; border-radius:22rpx; background:#e9faf5; color:#22bf91; font-size:28rpx; font-weight:900; }
