@@ -152,6 +152,11 @@
 				</view>
 
 				<view class="pickup-section" v-if="selectedService === '附近的菜市场'">
+					<view class="market-mode-tabs">
+						<view :class="{active:marketMode==='nearby'}" @tap="marketMode='nearby'"><text>附近菜市场</text><small>查看地址</small></view>
+						<view :class="{active:marketMode==='stockGroup'}" @tap="marketMode='stockGroup'"><text>商家提前备货群</text><small>扫码入群</small></view>
+					</view>
+					<view v-if="marketMode==='nearby'">
 					<view class="pickup-head">
 						<text class="pickup-title">附近的菜市场</text>
 						<view class="pickup-copy" @tap="copyStoreAddress" v-if="storeInfo.address">
@@ -164,6 +169,15 @@
 						<view class="pickup-meta">
 							<text class="pickup-meta-item" v-if="storeInfo.hours">营业时间 {{ storeInfo.hours }}</text>
 							<text class="pickup-meta-item" v-if="storeInfo.phone">电话 {{ storeInfo.phone }}</text>
+						</view>
+					</view>
+					</view>
+					<view class="stock-group-box" v-else>
+						<image v-if="storeInfo.stockGroupQr" :src="storeInfo.stockGroupQr" mode="aspectFit" @tap="previewStockGroupQr"></image>
+						<view class="stock-group-copy">
+							<text class="stock-group-name">{{storeInfo.stockGroupName||'商家提前备货群'}}</text>
+							<text class="stock-group-notice">{{storeInfo.stockGroupNotice||'商家暂未配置备货群，请联系客服。'}}</text>
+							<text class="stock-group-action" v-if="storeInfo.stockGroupQr" @tap="previewStockGroupQr">查看大图，长按识别二维码</text>
 						</view>
 					</view>
 				</view>
@@ -232,6 +246,7 @@
 	import { apiDishDetail } from '@/api/dish.js'
 	import { ensureLogin } from '@/utils/login.js'
 	import { apiRegionStatus, apiRegionApply, apiOpenedRegions } from '@/api/region.js'
+	import config from '@/config/index.js'
 
 	export default {
 		data() {
@@ -258,8 +273,12 @@
 					name: '',
 					address: '',
 					hours: '',
-					phone: ''
+					phone: '',
+					stockGroupQr: '',
+					stockGroupName: '',
+					stockGroupNotice: ''
 				},
+				marketMode: 'nearby',
 				remark: '',
 				shareEnabled: true,
 				basketEnabled: false,
@@ -338,6 +357,11 @@
 			this.loadOpenedRegions();
 		},
 		methods: {
+			resolveAssetUrl(value) {
+				const url = String(value || '');
+				if (!url || /^https?:\/\//i.test(url)) return url;
+				return config.baseUrl.replace(/\/$/, '') + (url.startsWith('/') ? url : '/' + url);
+			},
 			async loadOpenedRegions() {
 				try { const res=await apiOpenedRegions(); this.openedRegions=(res&&res.data)||[]; } catch(e) {}
 			},
@@ -418,7 +442,10 @@
 							name: shop.storeName || shop.shopName || '',
 							address: shop.storeAddress || shop.address || '',
 							hours: shop.businessHours || '',
-							phone: shop.storePhone || shop.phone || ''
+							phone: shop.storePhone || shop.phone || '',
+							stockGroupQr: this.resolveAssetUrl(shop.stockGroupQr),
+							stockGroupName: shop.stockGroupName || '',
+							stockGroupNotice: shop.stockGroupNotice || ''
 						};
 					}
 				} catch (e) {}
@@ -452,6 +479,10 @@
 					}
 				});
 			},
+			previewStockGroupQr() {
+				if (!this.storeInfo.stockGroupQr) return;
+				uni.previewImage({ current: this.storeInfo.stockGroupQr, urls: [this.storeInfo.stockGroupQr] });
+			},
 			async submitOrder() {
 				if (this.needDelivery) {
 					if (!this.deliveryName.trim()) {
@@ -480,6 +511,7 @@
 					const remarkParts = [];
 					if (this.remark.trim()) remarkParts.push(this.remark.trim());
 					remarkParts.push(`用餐类型：${this.selectedService}`);
+					if (this.selectedService === '附近的菜市场') remarkParts.push(`菜市场方式：${this.marketMode === 'stockGroup' ? '商家提前备货群' : '附近菜市场'}`);
 					const payload = {
 						serviceType: this.serviceTypeCode,
 						groupRoomId: this.groupRoomId,
@@ -516,8 +548,8 @@
 		width: 750rpx;
 		min-height: 100vh;
 		background:
-			radial-gradient(circle at 12% 4%, rgba(61, 213, 177, 0.18) 0 92rpx, transparent 93rpx),
-			linear-gradient(180deg, #eafaf6 0, #f8fbfa 300rpx, #f8fbfa 100%);
+			linear-gradient(180deg, rgba(224,248,240,.68) 0, rgba(247,251,249,.96) 330rpx, #f8fbfa 520rpx),
+			url('/static/kitchen_banner.png') top center / 750rpx auto no-repeat;
 		padding-bottom: calc(128rpx + env(safe-area-inset-bottom));
 		box-sizing: border-box;
 		color: #202725;
@@ -1107,6 +1139,17 @@
 		font-weight: 900;
 	}
 	.service-chip.unavailable { background:#f2f4f3; color:#9aa3a0; border-color:#e6e9e8; }
+	.market-mode-tabs { display:grid; grid-template-columns:1fr 1fr; gap:12rpx; margin-bottom:20rpx; }
+	.market-mode-tabs>view { min-height:78rpx; padding:14rpx 18rpx; border:1rpx solid #e3ebe8; border-radius:17rpx; background:#f2f6f4; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box; }
+	.market-mode-tabs>view.active { border-color:#7bd9bd; background:#e8faf4; color:#22a982; }
+	.market-mode-tabs text { font-size:25rpx; font-weight:900; }
+	.market-mode-tabs small { margin-top:5rpx; color:#89958f; font-size:19rpx; }
+	.stock-group-box { min-height:210rpx; padding:20rpx; border-radius:18rpx; background:#f3f8f6; display:flex; gap:20rpx; box-sizing:border-box; }
+	.stock-group-box image { width:170rpx; height:170rpx; flex:none; border-radius:13rpx; background:#fbfefd; }
+	.stock-group-copy { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+	.stock-group-name { font-size:28rpx; font-weight:900; }
+	.stock-group-notice { margin-top:10rpx; color:#77847f; font-size:22rpx; line-height:1.5; }
+	.stock-group-action { margin-top:13rpx; color:#22b58d; font-size:21rpx; font-weight:800; }
 	.service-unavailable { margin-left:6rpx; font-size:20rpx; color:#f08b70; }
 	.region-mask { position:fixed; inset:0; z-index:80; background:rgba(25,31,29,.48); }
 	.region-sheet { position:fixed; left:0; right:0; bottom:0; z-index:81; padding:30rpx 28rpx calc(30rpx + env(safe-area-inset-bottom)); border-radius:30rpx 30rpx 0 0; background:#fbfefd; box-sizing:border-box; }

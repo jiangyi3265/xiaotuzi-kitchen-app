@@ -110,6 +110,10 @@
 		{
 			"path": "pages/service-apply/service-apply",
 			"style": { "navigationBarTitleText": "服务人员申请", "navigationStyle": "custom" }
+		},
+		{
+			"path": "pages/feedback/feedback",
+			"style": { "navigationBarTitleText": "反馈与建议", "navigationStyle": "custom" }
 		}
 	],
 	"globalStyle": {

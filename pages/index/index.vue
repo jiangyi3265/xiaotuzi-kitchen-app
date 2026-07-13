@@ -223,11 +223,13 @@
 										<text class="kitchen-dish-name">{{ dish.name }}</text>
 										<text class="kitchen-dish-sales">{{ dish.desc || '家常美味 · 下饭好菜' }}</text>
 									</view>
-									<view class="dish-action-cell">
-										<view class="dish-select-btn" @tap.stop="toggleSelectDish(dish.id)">
-											<view v-if="isDishSelected(dish.id)" class="select-checkmark"></view>
-											<text v-else class="dish-plus-symbol">+</text>
+									<view class="dish-action-cell" :class="{quantity:isDishSelected(dish.id)}">
+										<view class="dish-inline-qty" v-if="isDishSelected(dish.id)">
+											<text class="dish-qty-minus" @tap.stop="changeDishQuantity(dish.id,-1)">−</text>
+											<text class="dish-qty-number">{{getDishQuantity(dish.id)}}</text>
+											<text class="dish-qty-plus" @tap.stop="changeDishQuantity(dish.id,1)">＋</text>
 										</view>
+										<view v-else class="dish-select-btn" @tap.stop="toggleSelectDish(dish.id)"><text class="dish-plus-symbol">+</text></view>
 									</view>
 								</view>
 							</view>
@@ -315,7 +317,7 @@
 							<view class="my-order-user">
 								<view class="my-order-name-row">
 									<text class="my-order-user-name">{{ orderDisplayName(o) }}</text>
-									<text class="my-order-self">自己</text>
+									<text class="my-order-self">{{isMyOwnOrder(o)?'自己':'共同订单'}}</text>
 								</view>
 								<text class="my-order-time">{{ orderCardTime(o.createTime) }}</text>
 							</view>
@@ -324,7 +326,8 @@
 									<text class="dine-tag-dot"></text>
 									<text>{{ serviceTypeText(o.serviceType) }}</text>
 								</view>
-								<view class="my-order-kitchen-tag">
+								<view class="my-order-source-tag" v-if="orderSourceText(o)"><text>{{orderSourceText(o)}}</text></view>
+								<view class="my-order-kitchen-tag" v-else>
 									<image class="my-order-kitchen-icon" src="/static/chef_hat.svg" mode="aspectFit"></image>
 									<text>我的厨房</text>
 								</view>
@@ -508,6 +511,7 @@
 								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('申请加盟')"><view class="social-entry-icon">盟</view><text class="my-grid-item-label">申请加盟</text></view>
 								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
 								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
+								<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('反馈与建议')"><view class="social-entry-icon">议</view><text class="my-grid-item-label">反馈与建议</text></view>
 							</view>
 						</swiper-item>
 					</swiper>
@@ -1256,14 +1260,23 @@
 				return String(t).slice(0, 16).replace('T', ' ');
 			},
 			serviceTypeText(t) {
-				return { '0': '同城配送', '1': '厨师代炒', '2': '店内自提' }[t] || '—';
+				return { '0': '同城配送', '1': '厨师代炒', '2': '附近菜市场' }[t] || '—';
+			},
+			isMyOwnOrder(order) {
+				const currentId = this.currentUser && this.currentUser.id;
+				return !currentId || String(order && order.wxUserId) === String(currentId);
+			},
+			orderSourceText(order) {
+				if (order && order.groupRoomId) return '多人聚餐';
+				if (order && order.coupleSpaceId) return order.recipientWxUserId ? '情侣点餐' : '情侣空间';
+				return '';
 			},
 			orderStatusText(s) {
 				return { '0': '待处理', '1': '已接单', '2': '制作中', '3': '已完成', '4': '已取消', '5': '申请退款' }[s] || '—';
 			},
 			canRefund(order) {
 				if (!order) return false;
-				return ['0', '1', '2'].includes(String(order.orderStatus));
+				return this.isMyOwnOrder(order) && ['0', '1', '2'].includes(String(order.orderStatus));
 			},
 			async onOrderTap(order) {
 				if (!order || !order.id) return;
@@ -1688,6 +1701,7 @@
 				return this.orderPreviewItems(order).reduce((sum, item) => sum + (Number(item.quantity) || 1), 0) || 1;
 			},
 			orderDisplayName(order) {
+				if (order && (order.groupRoomId || order.coupleSpaceId)) return order.userNickname || '共同点餐成员';
 				if (order && order.receiverName) return order.receiverName;
 				return this.kitchenName || '我的厨房';
 			},
@@ -1714,10 +1728,12 @@
 			orderPrimaryText(order) {
 				const status = String(order && order.orderStatus);
 				if (this.orderCompletingId === (order && order.id)) return '完成中';
+				if (!this.isMyOwnOrder(order)) return '查看详情';
 				return ['0', '1', '2'].includes(status) ? '完成订单' : '查看详情';
 			},
 			async onOrderCompleteTap(order) {
 				if (!order) return;
+				if (!this.isMyOwnOrder(order)) { this.onOrderTap(order); return; }
 				if (!['0', '1', '2'].includes(String(order.orderStatus))) {
 					this.onOrderTap(order);
 					return;
@@ -1942,6 +1958,8 @@
 					uni.navigateTo({ url: '/pages/service-apply/service-apply?type=0' });
 				} else if (name === '代炒厨师申请') {
 					uni.navigateTo({ url: '/pages/service-apply/service-apply?type=1' });
+				} else if (name === '反馈与建议') {
+					uni.navigateTo({ url: '/pages/feedback/feedback' });
 				}
 			},
 			loadSettings() {
@@ -8571,5 +8589,12 @@
 	.social-entry-icon { width:70rpx; height:70rpx; display:flex; align-items:center; justify-content:center; border-radius:22rpx; background:#e9faf5; color:#22bf91; font-size:28rpx; font-weight:900; }
 	.social-entry.couple .social-entry-icon { background:#fff0f2; color:#f2768c; }
 	.social-entry.party .social-entry-icon { background:#fff5df; color:#eaa63c; }
+	.dish-inline-qty { display:flex; align-items:center; gap:9rpx; }
+	.tab-kitchen .dish-action-cell.quantity { width:150rpx; }
+	.dish-inline-qty .dish-qty-minus,.dish-inline-qty .dish-qty-plus { width:46rpx; height:46rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28rpx; font-weight:900; }
+	.dish-inline-qty .dish-qty-minus { background:#edf3f1; color:#64726d; }
+	.dish-inline-qty .dish-qty-plus { background:#17c454; color:#f8fffc; }
+	.dish-qty-number { min-width:28rpx; text-align:center; font-size:24rpx; font-weight:900; }
+	.my-order-source-tag { height:34rpx; padding:0 12rpx; border-radius:17rpx; display:flex; align-items:center; background:#e8faf4; color:#22a982; font-size:21rpx; font-weight:800; }
 	.native-entry { display:flex; flex-direction:column; align-items:center; justify-content:center; }
 </style>
