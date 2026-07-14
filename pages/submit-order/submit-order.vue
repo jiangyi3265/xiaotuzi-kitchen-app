@@ -140,8 +140,8 @@
 
 				<view class="pickup-section" v-if="selectedService === '附近的菜市场'">
 					<view class="market-mode-tabs">
-						<view :class="{active:marketMode==='nearby'}" @tap="marketMode='nearby'"><text>附近菜市场</text><small>查看地址</small></view>
-						<view :class="{active:marketMode==='stockGroup'}" @tap="marketMode='stockGroup'"><text>商家提前备货群</text><small>生成采购清单</small></view>
+						<view :class="{active:marketMode==='nearby'}" @tap="marketMode='nearby'"><text>附近菜市场</text><text class="market-mode-desc">查看地址</text></view>
+						<view :class="{active:marketMode==='stockGroup'}" @tap="marketMode='stockGroup'"><text>商家提前备货群</text><text class="market-mode-desc">生成采购清单</text></view>
 					</view>
 					<view v-if="marketMode==='nearby'">
 					<view class="pickup-head">
@@ -334,7 +334,7 @@
 							.filter(item => item && /^\d+$/.test(String(item.dishId)))
 							.map(item => ({
 								dishId: Number(item.dishId),
-								quantity: Math.max(1, Math.min(Number(item.quantity) || 1, 99))
+								quantity: Math.max(1, Math.min(Number(item.quantity) || 1, 999))
 							}))
 						: [];
 				} catch (e) {
@@ -349,7 +349,7 @@
 					.filter(id => /^\d+$/.test(id))
 					.map(id => ({
 						dishId: Number(id),
-						quantity: Math.max(1, Math.min(Number(quantities[id]) || 1, 99))
+						quantity: Math.max(1, Math.min(Number(quantities[id]) || 1, 999))
 					}));
 			}
 
@@ -1104,7 +1104,7 @@
 	.market-mode-tabs>view { min-height:78rpx; padding:14rpx 18rpx; border:1rpx solid #e3ebe8; border-radius:17rpx; background:#f2f6f4; display:flex; flex-direction:column; justify-content:center; box-sizing:border-box; }
 	.market-mode-tabs>view.active { border-color:#7bd9bd; background:#e8faf4; color:#22a982; }
 	.market-mode-tabs text { font-size:25rpx; font-weight:900; }
-	.market-mode-tabs small { margin-top:5rpx; color:#89958f; font-size:19rpx; }
+	.market-mode-desc { margin-top:5rpx; color:#89958f; font-size:19rpx; }
 	.stock-group-section { display:flex; flex-direction:column; gap:16rpx; }
 	.stock-group-box { min-height:210rpx; padding:20rpx; border-radius:18rpx; background:#f3f8f6; display:flex; gap:20rpx; box-sizing:border-box; }
 	.stock-group-box image { width:170rpx; height:170rpx; flex:none; border-radius:13rpx; background:#fbfefd; }

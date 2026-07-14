@@ -21,7 +21,7 @@
 			</view>
 			<view class="empty" v-else>该分类暂时没有菜品</view><view class="safe-space"></view>
 		</scroll-view>
-		<view class="bottom"><view><text>{{remote?'我准备投喂':'双方合计'}} {{totalCount}} 份</text><text class="total">￥{{totalAmount}}</text></view><view class="confirm" :class="{disabled:!totalCount}" @tap="confirm">{{remote?'去填写投喂订单':'确认共同订单'}}</view></view>
+		<view class="bottom"><view><text>{{remote?'我准备投喂':'双方合计'}} {{totalCount}} 份</text><text class="total">￥{{totalAmount}}</text></view><view class="confirm" :class="{disabled:!totalCount||confirming}" @tap="confirm">{{confirming?'处理中...':(remote?'去填写投喂订单':'确认共同订单')}}</view></view>
 	</view>
 </template>
 <script>
@@ -30,7 +30,7 @@
 	import { apiCoupleDetail, apiCoupleSetItem } from '@/api/social.js'
 	import { ensureLogin } from '@/utils/login.js'
 	export default {
-		data(){return{remote:false,categories:[],dishes:[],activeCategoryId:'',quantities:{},sharedItems:[],currentUserId:null,loading:false}},
+		data(){return{remote:false,categories:[],dishes:[],activeCategoryId:'',quantities:{},sharedItems:[],currentUserId:null,loading:false,confirming:false}},
 		computed:{
 			filteredDishes(){if(this.activeCategoryId==='')return this.dishes;return this.dishes.filter(d=>String(d.categoryId)===String(this.activeCategoryId))},
 			displaySharedItems(){if(this.remote)return this.localItems('我');const others=this.sharedItems.filter(item=>String(item.userId)!==String(this.currentUserId));return others.concat(this.localItems('我'))},
@@ -39,17 +39,17 @@
 			totalAmount(){const value=this.combinedItems.reduce((sum,item)=>{const dish=this.dishes.find(d=>String(d.id)===String(item.dishId));return sum+Number(dish&&dish.virtualPrice||0)*item.quantity},0);return value.toFixed(2)}
 		},
 		onLoad(o){this.remote=String(o.remote||'')==='1';this._syncQueues={}},
-		onShow(){this.load()},
+		onShow(){this.confirming=false;this.load()},
 		methods:{
 			async load(){if(this.loading)return;this.loading=true;try{await ensureLogin();const [catRes,dishRes,spaceRes]=await Promise.all([apiCategoryTree(),apiDishList({pageNum:1,pageSize:100}),apiCoupleDetail()]);const flatten=rows=>(rows||[]).reduce((all,item)=>all.concat(item,flatten(item.children)),[]);this.categories=flatten((catRes&&catRes.data)||[]);this.dishes=(dishRes&&dishRes.rows)||[];const space=spaceRes&&spaceRes.data;if(!space)throw new Error('请先绑定情侣空间');this.currentUserId=space.currentUserId;this.sharedItems=space.items||[];if(!this.remote){const next={};this.sharedItems.filter(item=>String(item.userId)===String(this.currentUserId)).forEach(item=>{next[String(item.dishId)]=Number(item.quantity||0)});this.quantities=next}}catch(e){uni.showToast({title:e.message||'共同菜单加载失败',icon:'none'})}finally{this.loading=false}},
-			async loadShared(){try{const res=await apiCoupleDetail();const space=res&&res.data;this.currentUserId=space&&space.currentUserId;this.sharedItems=space&&space.items||[]}catch(e){}},
+			async loadShared(){try{const res=await apiCoupleDetail();const space=res&&res.data;this.currentUserId=space&&space.currentUserId;this.sharedItems=space&&space.items||[];if(!this.remote){const next={};this.sharedItems.filter(item=>String(item.userId)===String(this.currentUserId)).forEach(item=>{next[String(item.dishId)]=Number(item.quantity||0)});this.quantities=next}}catch(e){}},
 			localItems(name){return this.dishes.filter(d=>this.quantity(d.id)>0).map(d=>({dishId:d.id,dishName:d.dishName,cover:d.cover,userId:this.currentUserId,quantity:this.quantity(d.id),price:d.virtualPrice||0,addedBy:name}))},
 			quantity(id){return Number(this.quantities[String(id)]||0)},
 			otherQuantity(id){return this.sharedItems.filter(item=>String(item.userId)!==String(this.currentUserId)&&String(item.dishId)===String(id)).reduce((sum,item)=>sum+Number(item.quantity||0),0)},
 			isMine(item){return String(item.userId)===String(this.currentUserId)},
 			change(id,delta){const key=String(id),next=Math.max(0,Math.min(99,this.quantity(id)+delta));this.$set?this.$set(this.quantities,key,next):(this.quantities[key]=next);if(!this.remote)this.queueSync(id,next)},
-			queueSync(dishId,quantity){const key=String(dishId),previous=this._syncQueues[key]||Promise.resolve();const task=previous.catch(()=>{}).then(()=>apiCoupleSetItem({dishId,quantity})).then(res=>{this.sharedItems=res&&res.data||this.sharedItems}).catch(e=>{uni.showToast({title:e.message||'共同菜单同步失败',icon:'none'})});this._syncQueues[key]=task},
-			async confirm(){if(!this.totalCount){uni.showToast({title:'请先选择菜品',icon:'none'});return}if(!this.remote){await Promise.all(Object.values(this._syncQueues||{}));await this.loadShared()}const source=this.remote?this.localItems('我').map(item=>({dishId:item.dishId,quantity:item.quantity})):this.combinedItems;if(!source.length){uni.showToast({title:'共同菜单已更新，请重新选择',icon:'none'});return}const encoded=encodeURIComponent(JSON.stringify(source));uni.navigateTo({url:`/pages/submit-order/submit-order?coupleOrder=1&remote=${this.remote?'1':'0'}&items=${encoded}`})},
+			queueSync(dishId,quantity){const key=String(dishId),previous=this._syncQueues[key]||Promise.resolve();const task=previous.catch(()=>{}).then(()=>apiCoupleSetItem({dishId,quantity})).then(res=>{this.sharedItems=res&&res.data||this.sharedItems}).catch(async e=>{uni.showToast({title:e.message||'共同菜单同步失败',icon:'none'});await this.loadShared()});this._syncQueues[key]=task},
+			async confirm(){if(this.confirming)return;if(!this.totalCount){uni.showToast({title:'请先选择菜品',icon:'none'});return}this.confirming=true;try{if(!this.remote){await Promise.all(Object.values(this._syncQueues||{}));await this.loadShared()}const source=this.remote?this.localItems('我').map(item=>({dishId:item.dishId,quantity:item.quantity})):this.combinedItems;if(!source.length){uni.showToast({title:'共同菜单已更新，请重新选择',icon:'none'});this.confirming=false;return}const encoded=encodeURIComponent(JSON.stringify(source));uni.navigateTo({url:`/pages/submit-order/submit-order?coupleOrder=1&remote=${this.remote?'1':'0'}&items=${encoded}`,fail:()=>{this.confirming=false}})}catch(e){this.confirming=false}},
 			back(){uni.navigateBack()}
 		}
 	}

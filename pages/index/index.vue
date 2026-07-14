@@ -919,6 +919,7 @@
 				tutorialStep: 0,          // 0 to 4 (onboarding)
 				showAddDrawer: false,
 				showSelectedDrawer: false,
+				orderNavigating: false,
 				dishes: [],
 				selectedDishIds: [],
 				selectedDishQuantities: {},
@@ -1064,6 +1065,7 @@
 			this.applyInviteOptions(options);
 		},
 		onShow() {
+			this.orderNavigating = false;
 			if (!getToken()) {
 				ensureLogin().catch(() => {})
 				return
@@ -1597,7 +1599,11 @@
 				// #endif
 			},
 			onDoneTap() {
-				if (this.selectedDishIds.length === 0) return;
+				if (this.orderNavigating) return;
+				if (this.selectedDishIds.length === 0) {
+					uni.showToast({ title: '请先选择菜品', icon: 'none' });
+					return;
+				}
 				const selectedDish = this.selectedKitchenDishes[0] || this.activeKitchenDish || {};
 				const selectedName = encodeURIComponent(selectedDish.name || '炖猪脚');
 				const selectedImage = encodeURIComponent(selectedDish.image || '/static/onion_chicken.png');
@@ -1607,8 +1613,10 @@
 					quantity: this.getDishQuantity(id)
 				}))));
 				this.closeSelectedDrawer();
+				this.orderNavigating = true;
 				uni.navigateTo({
-					url: `/pages/submit-order/submit-order?count=${this.selectedTotalCount}&name=${selectedName}&image=${selectedImage}&ids=${ids}&items=${items}`
+					url: `/pages/submit-order/submit-order?count=${this.selectedTotalCount}&name=${selectedName}&image=${selectedImage}&ids=${ids}&items=${items}`,
+					fail: () => { this.orderNavigating = false; }
 				});
 			},
 			nextTutorialStep() {

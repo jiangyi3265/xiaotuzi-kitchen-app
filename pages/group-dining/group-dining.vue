@@ -126,8 +126,8 @@
 		</scroll-view>
 		<view class="room-cart-bar" v-if="room && !cartVisible">
 			<view class="room-cart-summary" @tap="cartVisible=true"><view class="room-cart-icon"><image src="/static/cart.svg" mode="aspectFit"></image><text>{{room.items.length}}</text></view><view><text>共同购物车</text><text>{{room.items.reduce((s,item)=>s+Number(item.quantity||0),0)}}份 · ￥{{room.cartTotal||0}}</text></view></view>
-			<view class="room-finish-compact" v-if="isOwner" @tap="finishRoom">结束</view>
-			<view class="room-submit-fixed" :class="{disabled:!room.items.length}" @tap="submitGroupOrder">提交订单</view>
+			<view class="room-finish-compact" :class="{disabled:finishing}" v-if="isOwner" @tap="finishRoom">{{ finishing ? '结束中' : '结束' }}</view>
+			<view class="room-submit-fixed" :class="{disabled:!room.items.length||orderNavigating}" @tap="submitGroupOrder">{{ orderNavigating ? '处理中' : '提交订单' }}</view>
 		</view>
 
 		<view class="modal-mask" v-if="qrVisible || settlementVisible || cartVisible" @tap="closeModal"></view>
@@ -161,7 +161,7 @@
 				</view>
 				<view class="rooms-empty" v-if="!room.items.length">购物车还是空的</view>
 			</scroll-view>
-			<view class="cart-sheet-submit" :class="{disabled:!room.items.length}" @tap="submitGroupOrder">提交聚餐订单</view>
+			<view class="cart-sheet-submit" :class="{disabled:!room.items.length||orderNavigating}" @tap="submitGroupOrder">{{ orderNavigating ? '处理中' : '提交聚餐订单' }}</view>
 		</view>
 	</view>
 </template>
@@ -192,7 +192,10 @@
 				settlementVisible: false,
 				cartVisible: false,
 				cartUpdatingDishId: null,
-				clearingCart: false
+				clearingCart: false,
+				addingDishId: null,
+				orderNavigating: false,
+				finishing: false
 			}
 		},
 		computed: {
@@ -216,6 +219,7 @@
 			this.initialize(options)
 		},
 		async onShow() {
+			this.orderNavigating = false
 			const submittedRoomId = uni.getStorageSync('groupOrderSubmittedRoomId')
 			if (submittedRoomId) uni.removeStorageSync('groupOrderSubmittedRoomId')
 			await this.loadRooms()
@@ -333,11 +337,15 @@
 				if (this.room) await this.open(this.room.id)
 			},
 			async add(dish) {
+				if (!this.room || !dish || this.addingDishId !== null) return
 				try {
+					this.addingDishId = dish.id
 					await apiGroupAddItem({ roomId: this.room.id, dishId: dish.id, quantity: 1 })
 					await this.refresh()
 					uni.showToast({ title: '已加入共同菜单', icon: 'none' })
-				} catch (e) {}
+				} catch (e) {} finally {
+					this.addingDishId = null
+				}
 			},
 			async changeCartItem(item, delta) {
 				if (!this.room || this.cartUpdatingDishId !== null) return
@@ -375,15 +383,20 @@
 				await this.add(dish)
 			},
 			submitGroupOrder() {
+				if (this.orderNavigating) return
 				if (!this.room || !this.room.items.length) {
 					uni.showToast({ title: '请先选择菜品', icon: 'none' })
 					return
 				}
 				const items = encodeURIComponent(JSON.stringify(this.room.items.map(item => ({ dishId: item.dishId, quantity: item.quantity }))))
-				uni.navigateTo({ url: `/pages/submit-order/submit-order?groupRoomId=${this.room.id}&items=${items}` })
+				this.orderNavigating = true
+				uni.navigateTo({
+					url: `/pages/submit-order/submit-order?groupRoomId=${this.room.id}&items=${items}`,
+					fail: () => { this.orderNavigating = false }
+				})
 			},
 			finishRoom() {
-				if (!this.room || !this.isOwner) return
+				if (!this.room || !this.isOwner || this.finishing) return
 				uni.showModal({
 					title: '结束聚餐',
 					content: '结束后成员不能继续点菜或下单，历史订单仍会保留。',
@@ -391,11 +404,14 @@
 					success: async res => {
 						if (!res.confirm) return
 						try {
+							this.finishing = true
 							await apiGroupFinish(this.room.id)
 							this.room = null
 							await this.loadRooms()
 							uni.showToast({ title: '聚餐已结束', icon: 'success' })
-						} catch (e) {}
+						} catch (e) {} finally {
+							this.finishing = false
+						}
 					}
 				})
 			},
@@ -450,6 +466,7 @@
 	.page.embedded { min-height: calc(100vh - 122rpx - env(safe-area-inset-bottom)); }
 	.page.embedded .page-scroll { height: calc(100vh - 352rpx - env(safe-area-inset-bottom)); }
 	.page.embedded .room-cart-bar { bottom: calc(138rpx + env(safe-area-inset-bottom)); z-index: 90; }
+	.page.embedded .cart-sheet { bottom: calc(122rpx + env(safe-area-inset-bottom)); padding-bottom: 26rpx; }
 	.header { height: 230rpx; padding: calc(46rpx + env(safe-area-inset-top)) 32rpx 30rpx; display: flex; align-items: flex-end; background: radial-gradient(circle at 88% 18%, rgba(255,255,255,.28) 0 82rpx, transparent 84rpx), linear-gradient(145deg, #28cfa3, #7be2c2); box-sizing: border-box; color: #fff; }
 	.header-back { width: 62rpx; height: 62rpx; margin-right: 20rpx; border-radius: 50%; background: rgba(255,255,255,.94); color: #268c72; font-size: 52rpx; line-height: 55rpx; text-align: center; }
 	.header-copy { flex: 1; display: flex; flex-direction: column; }
@@ -545,7 +562,7 @@
 	.order-button { flex: 1; background: #30cda3; color: #f8fffc; }
 	.order-button.disabled { opacity: .45; }
 	.mint-box { background: #eafaf5; color: #20b98f; }
-	.room-cart-bar{position:fixed;z-index:15;left:22rpx;right:22rpx;bottom:calc(20rpx + env(safe-area-inset-bottom));height:100rpx;padding:10rpx 12rpx 10rpx 18rpx;display:flex;align-items:center;gap:12rpx;border:1rpx solid #dcebe6;border-radius:52rpx;background:#fbfefd;box-shadow:0 12rpx 34rpx rgba(37,76,64,.15);box-sizing:border-box}.room-cart-summary{flex:1;min-width:0;display:flex;align-items:center}.room-cart-icon{position:relative;width:60rpx;height:60rpx;flex-shrink:0}.room-cart-icon image{width:60rpx;height:60rpx}.room-cart-icon>text{position:absolute;right:-5rpx;top:-7rpx;min-width:29rpx;height:29rpx;padding:0 5rpx;border-radius:15rpx;background:#f05f6c;color:#fff;text-align:center;line-height:29rpx;font-size:18rpx;font-weight:900;box-sizing:border-box}.room-cart-summary>view:last-child{margin-left:13rpx;display:flex;flex-direction:column}.room-cart-summary>view:last-child text:first-child{font-size:25rpx;font-weight:900}.room-cart-summary>view:last-child text:last-child{margin-top:5rpx;color:#72817c;font-size:19rpx}.room-finish-compact{height:66rpx;padding:0 18rpx;display:flex;align-items:center;border:1rpx solid #cbd8d4;border-radius:34rpx;color:#687771;font-size:22rpx;font-weight:800}.room-submit-fixed{height:72rpx;padding:0 28rpx;display:flex;align-items:center;border-radius:37rpx;background:#30cda3;color:#f8fffc;font-size:25rpx;font-weight:900}.room-submit-fixed.disabled,.cart-sheet-submit.disabled{opacity:.45}.cart-sheet{position:fixed;z-index:220;left:0;right:0;bottom:0;height:70vh;max-height:980rpx;padding:28rpx 24rpx calc(26rpx + env(safe-area-inset-bottom));border-radius:30rpx 30rpx 0 0;background:#fbfefd;display:flex;flex-direction:column;box-sizing:border-box}.cart-sheet-head{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}.cart-sheet-head>view{display:flex;flex-direction:column}.cart-sheet-head>view text:first-child{font-size:34rpx;font-weight:900}.cart-sheet-head>view text:last-child{margin-top:7rpx;color:#7b8a85;font-size:21rpx}.cart-sheet-head>text{font-size:48rpx;color:#73817c}.cart-sheet-list{height:0;min-height:0;flex:1;margin-top:20rpx}.cart-sheet-row{min-height:108rpx;padding:12rpx 0;display:flex;align-items:center;border-bottom:1rpx solid #e8efec;box-sizing:border-box}.cart-sheet-row image{width:82rpx;height:82rpx;border-radius:13rpx;flex-shrink:0}.cart-sheet-row>view{flex:1;min-width:0;margin-left:15rpx;display:flex;flex-direction:column}.cart-sheet-row>view text:first-child{font-size:26rpx;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cart-sheet-row>view text:last-child{margin-top:7rpx;color:#83918c;font-size:20rpx}.cart-sheet-row>text:last-child{margin-left:12rpx;font-weight:900;flex-shrink:0}.cart-sheet-submit{height:82rpx;margin-top:22rpx;display:flex;align-items:center;justify-content:center;border-radius:42rpx;background:#30cda3;color:#f8fffc;font-size:28rpx;font-weight:900;flex-shrink:0}
+	.room-cart-bar{position:fixed;z-index:15;left:22rpx;right:22rpx;bottom:calc(20rpx + env(safe-area-inset-bottom));height:100rpx;padding:10rpx 12rpx 10rpx 18rpx;display:flex;align-items:center;gap:12rpx;border:1rpx solid #dcebe6;border-radius:52rpx;background:#fbfefd;box-shadow:0 12rpx 34rpx rgba(37,76,64,.15);box-sizing:border-box}.room-cart-summary{flex:1;min-width:0;display:flex;align-items:center}.room-cart-icon{position:relative;width:60rpx;height:60rpx;flex-shrink:0}.room-cart-icon image{width:60rpx;height:60rpx}.room-cart-icon>text{position:absolute;right:-5rpx;top:-7rpx;min-width:29rpx;height:29rpx;padding:0 5rpx;border-radius:15rpx;background:#f05f6c;color:#fff;text-align:center;line-height:29rpx;font-size:18rpx;font-weight:900;box-sizing:border-box}.room-cart-summary>view:last-child{margin-left:13rpx;display:flex;flex-direction:column}.room-cart-summary>view:last-child text:first-child{font-size:25rpx;font-weight:900}.room-cart-summary>view:last-child text:last-child{margin-top:5rpx;color:#72817c;font-size:19rpx}.room-finish-compact{height:66rpx;padding:0 18rpx;display:flex;align-items:center;border:1rpx solid #cbd8d4;border-radius:34rpx;color:#687771;font-size:22rpx;font-weight:800}.room-finish-compact.disabled{opacity:.45;pointer-events:none}.room-submit-fixed{height:72rpx;padding:0 28rpx;display:flex;align-items:center;border-radius:37rpx;background:#30cda3;color:#f8fffc;font-size:25rpx;font-weight:900}.room-submit-fixed.disabled,.cart-sheet-submit.disabled{opacity:.45}.cart-sheet{position:fixed;z-index:220;left:0;right:0;bottom:0;height:70vh;max-height:980rpx;padding:28rpx 24rpx calc(26rpx + env(safe-area-inset-bottom));border-radius:30rpx 30rpx 0 0;background:#fbfefd;display:flex;flex-direction:column;box-sizing:border-box}.cart-sheet-head{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}.cart-sheet-head>view{display:flex;flex-direction:column}.cart-sheet-head>view text:first-child{font-size:34rpx;font-weight:900}.cart-sheet-head>view text:last-child{margin-top:7rpx;color:#7b8a85;font-size:21rpx}.cart-sheet-head>text{font-size:48rpx;color:#73817c}.cart-sheet-list{height:0;min-height:0;flex:1;margin-top:20rpx}.cart-sheet-row{min-height:108rpx;padding:12rpx 0;display:flex;align-items:center;border-bottom:1rpx solid #e8efec;box-sizing:border-box}.cart-sheet-row image{width:82rpx;height:82rpx;border-radius:13rpx;flex-shrink:0}.cart-sheet-row>view{flex:1;min-width:0;margin-left:15rpx;display:flex;flex-direction:column}.cart-sheet-row>view text:first-child{font-size:26rpx;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cart-sheet-row>view text:last-child{margin-top:7rpx;color:#83918c;font-size:20rpx}.cart-sheet-row>text:last-child{margin-left:12rpx;font-weight:900;flex-shrink:0}.cart-sheet-submit{height:82rpx;margin-top:22rpx;display:flex;align-items:center;justify-content:center;border-radius:42rpx;background:#30cda3;color:#f8fffc;font-size:28rpx;font-weight:900;flex-shrink:0}
 	.cart-sheet-head>.cart-sheet-title{display:flex;flex-direction:column}.cart-sheet-head>.cart-sheet-actions{margin-left:20rpx;display:flex;flex-direction:row;align-items:center;gap:24rpx}.cart-clear{height:50rpx;padding:0 18rpx;display:flex;align-items:center;border-radius:26rpx;background:#fff0f0;color:#d95f5f;font-size:22rpx;font-weight:900}.cart-clear.disabled{opacity:.45}.cart-close{font-size:48rpx;line-height:1;color:#73817c}.cart-sheet-row>.cart-sheet-copy{flex:1;min-width:0;margin-left:15rpx;display:flex;flex-direction:column}.cart-sheet-row>.cart-row-side{flex:none;min-width:156rpx;margin-left:12rpx;display:flex;flex-direction:column;align-items:flex-end}.cart-row-price{font-size:24rpx;font-weight:900;color:#26312e}.cart-qty-control{height:48rpx;margin-top:10rpx;display:flex;align-items:center;gap:8rpx}.cart-qty-control>text{width:44rpx;height:44rpx;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#edf5f2;color:#53625d;font-size:26rpx;font-weight:900;line-height:1}.cart-qty-control>text:nth-child(2){width:38rpx;background:transparent;color:#202a27}.cart-qty-control>text:last-child{background:#35cda4;color:#f8fffc}.cart-qty-control.disabled{opacity:.45;pointer-events:none}
 	.cart-sheet-head>.cart-sheet-actions>.cart-clear{margin-top:0;color:#d95f5f;font-size:22rpx}.cart-sheet-head>.cart-sheet-actions>.cart-close{margin-top:0;color:#73817c;font-size:48rpx}.cart-sheet-row>.cart-row-side>.cart-row-price{margin-top:0;color:#26312e;font-size:24rpx}.cart-sheet-row>.cart-row-side>.cart-qty-control>text{margin-top:0;width:44rpx;height:44rpx;color:#53625d;font-size:26rpx}.cart-sheet-row>.cart-row-side>.cart-qty-control>text:nth-child(2){width:38rpx;color:#202a27}.cart-sheet-row>.cart-row-side>.cart-qty-control>text:last-child{color:#f8fffc}
 </style>
