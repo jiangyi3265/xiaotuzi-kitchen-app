@@ -107,9 +107,9 @@
 
 		<!-- Bottom Fixed Action Bar -->
 		<view class="bottom-actions-bar" v-if="!notFound">
-			<view class="btn-steal-full" @tap="openStealModal">
-				<image class="action-icon" src="/static/steal_bag.svg" mode="aspectFit"></image>
-				<text>偷菜到我的厨房</text>
+			<view class="btn-steal-full" :class="{ disabled: addingToCart }" @tap="addToCart">
+				<image class="action-icon" src="/static/cart.svg" mode="aspectFit"></image>
+				<text>{{ addingToCart ? '正在添加...' : '添加到购物车' }}</text>
 			</view>
 		</view>
 
@@ -179,6 +179,7 @@
 				selectedCategory: '默认分类',
 				categoryMap: {},
 				stealing: false,
+				addingToCart: false,
 				categories: ['默认分类'],
 				// 菜品不存在（无 id 或加载失败）
 				notFound: false,
@@ -213,6 +214,34 @@
 			}
 		},
 		methods: {
+			addToCart() {
+				if (this.addingToCart) return;
+				const dishId = Number(this.stealSource && this.stealSource.id);
+				if (!Number.isFinite(dishId) || dishId <= 0) {
+					uni.showToast({ title: '菜品信息缺失', icon: 'none' });
+					return;
+				}
+				this.addingToCart = true;
+				try {
+					const cachedIds = uni.getStorageSync('selectedDishIds');
+					const ids = Array.isArray(cachedIds) ? cachedIds.slice() : [];
+					const quantities = uni.getStorageSync('selectedDishQuantities') || {};
+					const existingIndex = ids.findIndex(id => String(id) === String(dishId));
+					const key = String(dishId);
+					if (existingIndex < 0) {
+						ids.push(dishId);
+						quantities[key] = 1;
+					} else {
+						quantities[key] = Math.min(99, Math.max(1, Number(quantities[key] || 1)) + 1);
+					}
+					uni.setStorageSync('selectedDishIds', ids);
+					uni.setStorageSync('selectedDishQuantities', quantities);
+					uni.showToast({ title: existingIndex < 0 ? '已添加到购物车' : '购物车数量已增加', icon: 'success', duration: 900 });
+					setTimeout(() => uni.navigateBack(), 700);
+				} finally {
+					setTimeout(() => { this.addingToCart = false; }, 800);
+				}
+			},
 			async loadDetail(id) {
 				try {
 					const res = await apiDishDetail(id);
@@ -805,8 +834,8 @@
 
 	.btn-steal-full {
 		flex: 1;
-		background-color: #10B981;
-		color: #FFFFFF;
+		background-color: #35cda4;
+		color: #f8fffc;
 		height: 80rpx;
 		border-radius: 40rpx;
 		display: flex;
@@ -815,6 +844,11 @@
 		font-size: 28rpx;
 		font-weight: bold;
 		gap: 12rpx;
+	}
+
+	.btn-steal-full.disabled {
+		opacity: .58;
+		pointer-events: none;
 	}
 
 	.btn-steal-full .action-icon {
