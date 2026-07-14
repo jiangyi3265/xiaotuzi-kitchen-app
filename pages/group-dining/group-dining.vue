@@ -93,20 +93,20 @@
 			</view>
 
 			<view class="card-title-row section-title-row">
-				<text>共同菜单与购买清单</text>
-				<text @tap="refresh">刷新</text>
+				<text>已购清单</text>
+				<text>共￥{{ room.purchasedTotal || 0 }}</text>
 			</view>
-			<view class="ordered-list" v-if="room.items.length">
-				<view class="ordered-item" v-for="item in room.items" :key="item.dishId">
+			<view class="ordered-list" v-if="room.purchasedItems && room.purchasedItems.length">
+				<view class="ordered-item" v-for="item in room.purchasedItems" :key="item.dishId">
 					<image :src="item.cover || '/static/onion_chicken.png'" mode="aspectFill"></image>
 					<view class="ordered-main">
 						<text>{{ item.dishName }}</text>
-						<text>{{ item.addedBy }}添加 · ￥{{ item.price }} × {{ item.quantity }}</text>
+						<text>已下单 · ￥{{ item.price }} × {{ item.quantity }}</text>
 					</view>
 					<text class="ordered-price">￥{{ item.subtotal }}</text>
 				</view>
 			</view>
-			<view class="rooms-empty ordered-empty" v-else>还没有人点菜</view>
+			<view class="rooms-empty ordered-empty" v-else>还没有已购菜品，提交订单后会显示在这里</view>
 
 			<view class="card-title-row section-title-row"><text>一起加菜</text><text>点击＋加入菜单</text></view>
 			<scroll-view class="category-scroll" scroll-x show-scrollbar="false">
@@ -125,7 +125,7 @@
 			<view class="bottom-space"></view>
 		</scroll-view>
 		<view class="room-cart-bar" v-if="room && !cartVisible">
-			<view class="room-cart-summary" @tap="cartVisible=true"><view class="room-cart-icon"><image src="/static/cart.svg" mode="aspectFit"></image><text>{{room.items.length}}</text></view><view><text>共同购物车</text><text>{{room.items.reduce((s,item)=>s+Number(item.quantity||0),0)}}份 · ￥{{room.total||0}}</text></view></view>
+			<view class="room-cart-summary" @tap="cartVisible=true"><view class="room-cart-icon"><image src="/static/cart.svg" mode="aspectFit"></image><text>{{room.items.length}}</text></view><view><text>共同购物车</text><text>{{room.items.reduce((s,item)=>s+Number(item.quantity||0),0)}}份 · ￥{{room.cartTotal||0}}</text></view></view>
 			<view class="room-finish-compact" v-if="isOwner" @tap="finishRoom">结束</view>
 			<view class="room-submit-fixed" :class="{disabled:!room.items.length}" @tap="submitGroupOrder">提交订单</view>
 		</view>
@@ -146,7 +146,7 @@
 			<view class="modal-button" @tap="closeModal">知道了</view>
 		</view>
 		<view class="cart-sheet" v-if="cartVisible&&room">
-			<view class="cart-sheet-head"><view><text>共同购物车</text><text>{{room.items.length}}种菜，共￥{{room.total||0}}</text></view><text @tap="closeModal">×</text></view>
+			<view class="cart-sheet-head"><view><text>共同购物车</text><text>{{room.items.length}}种菜，共￥{{room.cartTotal||0}}</text></view><text @tap="closeModal">×</text></view>
 			<scroll-view class="cart-sheet-list" scroll-y><view class="cart-sheet-row" v-for="item in room.items" :key="item.dishId"><image :src="item.cover||'/static/onion_chicken.png'" mode="aspectFill"/><view><text>{{item.dishName}}</text><text>{{item.addedBy}} 添加 · {{item.quantity}}份</text></view><text>￥{{item.subtotal}}</text></view><view class="rooms-empty" v-if="!room.items.length">购物车还是空的</view></scroll-view>
 			<view class="cart-sheet-submit" :class="{disabled:!room.items.length}" @tap="submitGroupOrder">提交聚餐订单</view>
 		</view>
