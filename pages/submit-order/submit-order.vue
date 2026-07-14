@@ -141,7 +141,7 @@
 				<view class="pickup-section" v-if="selectedService === '附近的菜市场'">
 					<view class="market-mode-tabs">
 						<view :class="{active:marketMode==='nearby'}" @tap="marketMode='nearby'"><text>附近菜市场</text><small>查看地址</small></view>
-						<view :class="{active:marketMode==='stockGroup'}" @tap="marketMode='stockGroup'"><text>商家提前备货群</text><small>生成备货清单</small></view>
+						<view :class="{active:marketMode==='stockGroup'}" @tap="marketMode='stockGroup'"><text>商家提前备货群</text><small>生成采购清单</small></view>
 					</view>
 					<view v-if="marketMode==='nearby'">
 					<view class="pickup-head">
@@ -170,14 +170,14 @@
 						</view>
 						<view class="stock-list-panel">
 							<view class="stock-list-head">
-								<view><text>备货清单</text><text>{{displaySelectedDishes.length}} 种菜，共 {{totalDishCount}} 份</text></view>
-								<view class="stock-copy-button" @tap="copyStockList"><text>一键复制</text></view>
+								<view><text>采购清单</text><text>{{displaySelectedDishes.length}} 种菜，共 {{totalDishCount}} 份</text></view>
+								<view class="stock-generate-label"><text>提交后生成</text></view>
 							</view>
 							<view class="stock-list-row" v-for="(dish,index) in displaySelectedDishes" :key="dish.id">
 								<text>{{index+1}}. {{dish.name}}</text><text>× {{dish.quantity}}</text>
 							</view>
 							<view class="stock-remark-preview" v-if="remark.trim()"><text>备注</text><text>{{remark.trim()}}</text></view>
-							<text class="stock-list-tip">提交后仍可复制，粘贴到微信发给商家确认备货。</text>
+							<text class="stock-list-tip">提交后将根据菜品用料生成完整采购清单，可一键复制发给商家确认备货。</text>
 						</view>
 					</view>
 				</view>
@@ -232,7 +232,7 @@
 		<view class="submit-bottom-bar">
 			<text class="total-text">共 {{ totalDishCount }} 道</text>
 			<view class="submit-btn" :class="{disabled:submitting}" @tap="submitOrder">
-				<text>{{ isStockGroup ? '提交备货清单' : '提交订单' }}</text>
+				<text>{{ isStockGroup ? '生成采购清单' : '提交订单' }}</text>
 			</view>
 		</view>
 	</view>
@@ -315,19 +315,6 @@
 			},
 			isStockGroup() {
 				return this.selectedService === '附近的菜市场' && this.marketMode === 'stockGroup';
-			},
-			stockListText() {
-				const lines = ['【商家提前备货清单】'];
-				if (this.storeInfo.name) lines.push(`商家：${this.storeInfo.name}`);
-				if (this.storeInfo.stockGroupName) lines.push(`备货群：${this.storeInfo.stockGroupName}`);
-				lines.push('', '菜品清单：');
-				this.displaySelectedDishes.forEach((dish, index) => {
-					lines.push(`${index + 1}. ${dish.name} × ${dish.quantity}`);
-				});
-				lines.push('', `合计：${this.displaySelectedDishes.length} 种菜，共 ${this.totalDishCount} 份`);
-				if (this.remark.trim()) lines.push(`备注：${this.remark.trim()}`);
-				lines.push('请商家确认库存和备货时间，谢谢。');
-				return lines.join('\n');
 			}
 		},
 		onLoad(options = {}) {
@@ -500,25 +487,6 @@
 				if (!this.storeInfo.stockGroupQr) return;
 				uni.previewImage({ current: this.storeInfo.stockGroupQr, urls: [this.storeInfo.stockGroupQr] });
 			},
-			copyStockList() {
-				if (!this.displaySelectedDishes.length) {
-					uni.showToast({ title: '暂无可复制的菜品', icon: 'none' });
-					return Promise.resolve(false);
-				}
-				return new Promise(resolve => {
-					uni.setClipboardData({
-						data: this.stockListText,
-						success: () => {
-							uni.showToast({ title: '备货清单已复制', icon: 'success' });
-							resolve(true);
-						},
-						fail: () => {
-							uni.showToast({ title: '复制失败，请稍后重试', icon: 'none' });
-							resolve(false);
-						}
-					});
-				});
-			},
 			async submitOrder() {
 				if (this.submitting) return;
 				if (this.needDelivery) {
@@ -566,7 +534,7 @@
 					if (this.selectedService === '同城配送' && /^\d+$/.test(String(this.selectedDeliveryId))) {
 						payload.riderId = Number(this.selectedDeliveryId);
 					}
-					await apiSubmitOrder(payload);
+					const submitRes = await apiSubmitOrder(payload);
 					uni.removeStorageSync('coupleRemoteFeed');
 					if (!this.basketEnabled) {
 						uni.removeStorageSync('selectedDishIds');
@@ -574,16 +542,13 @@
 					}
 					uni.setStorageSync('afterSubmitGoOrder', '1');
 					if (this.isStockGroup) {
-						uni.showModal({
-							title: '备货清单已提交',
-							content: '复制清单后，粘贴到微信发送给商家确认备货。',
-							confirmText: '复制清单',
-							cancelText: '查看订单',
-							success: async result => {
-								if (result.confirm) await this.copyStockList();
-								setTimeout(() => uni.navigateBack(), result.confirm ? 700 : 0);
-							}
-						});
+						const orderId = submitRes && (submitRes.orderId || (submitRes.data && submitRes.data.id));
+						if (orderId) {
+							uni.redirectTo({ url: `/pages/grocery-list/grocery-list?orderId=${orderId}&stockGroup=1` });
+						} else {
+							uni.showToast({ title: '采购清单已生成', icon: 'success' });
+							setTimeout(() => uni.navigateBack(), 900);
+						}
 					} else {
 						uni.showToast({ title: '下单成功', icon: 'success' });
 						setTimeout(() => uni.navigateBack(), 900);
@@ -1148,7 +1113,7 @@
 	.stock-list-head>view:first-child { min-width:0; display:flex; flex-direction:column; }
 	.stock-list-head>view:first-child text:first-child { color:#24302c; font-size:29rpx; font-weight:900; }
 	.stock-list-head>view:first-child text:last-child { margin-top:6rpx; color:#7b8883; font-size:20rpx; }
-	.stock-copy-button { min-width:150rpx; height:64rpx; padding:0 20rpx; display:flex; align-items:center; justify-content:center; border:1rpx solid #70d4b6; border-radius:33rpx; color:#20a981; font-size:23rpx; font-weight:900; box-sizing:border-box; }
+	.stock-generate-label { min-width:150rpx; height:64rpx; padding:0 20rpx; display:flex; align-items:center; justify-content:center; border-radius:33rpx; background:#e8faf4; color:#20a981; font-size:22rpx; font-weight:900; box-sizing:border-box; }
 	.stock-list-row { min-height:68rpx; display:flex; align-items:center; justify-content:space-between; gap:20rpx; border-bottom:1rpx solid #edf3f1; color:#34403c; font-size:24rpx; }
 	.stock-list-row text:first-child { flex:1; min-width:0; }
 	.stock-list-row text:last-child { color:#20a981; font-weight:900; flex-shrink:0; }
