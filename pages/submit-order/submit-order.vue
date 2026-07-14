@@ -535,6 +535,10 @@
 						payload.riderId = Number(this.selectedDeliveryId);
 					}
 					const submitRes = await apiSubmitOrder(payload);
+					if (this.groupRoomId) {
+						uni.setStorageSync('groupOrderSubmittedRoomId', String(this.groupRoomId));
+						uni.$emit('group-order-submitted', this.groupRoomId);
+					}
 					uni.removeStorageSync('coupleRemoteFeed');
 					if (!this.basketEnabled) {
 						uni.removeStorageSync('selectedDishIds');

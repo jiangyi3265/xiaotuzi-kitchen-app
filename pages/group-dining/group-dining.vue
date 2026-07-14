@@ -206,18 +206,36 @@
 			}
 		},
 		mounted() {
+			uni.$on('group-order-submitted', this.handleGroupOrderSubmitted)
 			if (this.embedded) this.initialize()
+		},
+		beforeDestroy() {
+			uni.$off('group-order-submitted', this.handleGroupOrderSubmitted)
 		},
 		onLoad(options = {}) {
 			this.initialize(options)
 		},
-		onShow() {
-			if (!this.room) this.loadRooms()
+		async onShow() {
+			const submittedRoomId = uni.getStorageSync('groupOrderSubmittedRoomId')
+			if (submittedRoomId) uni.removeStorageSync('groupOrderSubmittedRoomId')
+			await this.loadRooms()
+			if (this.room) {
+				await this.open(this.room.id)
+			} else if (submittedRoomId) {
+				await this.open(submittedRoomId)
+			}
 		},
 		onShareAppMessage() {
 			return this.getSharePayload()
 		},
 		methods: {
+			async handleGroupOrderSubmitted(roomId) {
+				if (!roomId) return
+				await this.loadRooms()
+				if (this.room && String(this.room.id) === String(roomId)) {
+					await this.open(roomId)
+				}
+			},
 			initialize(options = {}) {
 			this.loadDishes()
 			this.loadCategories()
