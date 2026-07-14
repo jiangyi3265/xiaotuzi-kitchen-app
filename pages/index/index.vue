@@ -2594,8 +2594,8 @@
 	}
 
 	.btn-done.active {
-		background-color: #7CDBC1; /* Active soft green */
-		color: #FFFFFF;
+		background-color: #35cda4;
+		color: #f8fffc;
 	}
 
 	.cart-right {
@@ -4974,8 +4974,14 @@
 
 	.tab-kitchen .btn-done {
 		width: 172rpx;
-		background: #99e0c8;
-		color: #fbfefd;
+		background: #e3e8e6;
+		color: #89938f;
+	}
+
+	.tab-kitchen .btn-done.active {
+		background: #35cda4;
+		color: #f8fffc;
+		box-shadow: 0 8rpx 20rpx rgba(53, 205, 164, .24);
 	}
 
 	.tab-kitchen .cart-right {
@@ -8571,8 +8577,8 @@
 	.today-order-summary image { width: 48rpx; height: 48rpx; }
 	.today-order-bar button { height: 70rpx; padding: 0 24rpx; display: flex; align-items: center; justify-content: center; border: 2rpx solid #35cda4; border-radius: 35rpx; background: #fff; color: #24b98f; font-size: 24rpx; font-weight: 900; line-height: 1; }
 	.today-order-bar button::after { border: 0; }
-	.today-order-submit { height: 70rpx; min-width: 136rpx; display: flex; align-items: center; justify-content: center; border-radius: 35rpx; background: #d9eee8; color: #fff; font-size: 25rpx; font-weight: 900; }
-	.today-order-submit.active { background: #35cda4; }
+	.today-order-submit { height: 70rpx; min-width: 136rpx; display: flex; align-items: center; justify-content: center; border-radius: 35rpx; background: #e3e8e6; color: #89938f; font-size: 25rpx; font-weight: 900; }
+	.today-order-submit.active { background: #35cda4; color: #f8fffc; box-shadow: 0 8rpx 20rpx rgba(53,205,164,.24); }
 	.tab-my .my-swiper-menu-box { height: auto; }
 	.tab-my .my-grid-layout { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 146rpx; row-gap: 24rpx; padding: 18rpx 12rpx; box-sizing: border-box; }
 	.tab-my .my-grid-item-label { min-height: 56rpx; display: flex; align-items: flex-start; justify-content: center; text-align: center; line-height: 28rpx; }
