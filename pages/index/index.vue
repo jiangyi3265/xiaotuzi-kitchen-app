@@ -7714,7 +7714,7 @@
 	}
 
 	.tab-order .my-order-tags {
-		width: 176rpx;
+		width: 210rpx;
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
@@ -7724,10 +7724,11 @@
 
 	.tab-order .my-order-dine-tag {
 		height: 50rpx;
-		padding: 0 20rpx;
+		max-width: 210rpx;
+		padding: 0 14rpx;
 		display: flex;
 		align-items: center;
-		gap: 10rpx;
+		gap: 8rpx;
 		border-radius: 26rpx;
 		background: #effcf8;
 		border: 2rpx solid rgba(53, 205, 164, 0.35);
@@ -7738,9 +7739,16 @@
 		box-sizing: border-box;
 	}
 
+	.tab-order .my-order-dine-tag > text:last-child,
+	.tab-order .my-order-kitchen-tag > text:last-child,
+	.tab-order .my-order-source-tag > text {
+		white-space: nowrap;
+	}
+
 	.tab-order .dine-tag-dot {
-		width: 24rpx;
-		height: 24rpx;
+		width: 20rpx;
+		height: 20rpx;
+		flex-shrink: 0;
 		border-radius: 50%;
 		background: #21c696;
 		box-shadow: inset 0 0 0 8rpx #effcf8;
