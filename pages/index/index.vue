@@ -529,6 +529,13 @@
 						<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
 					</view>
 				</view>
+				<view class="my-account-actions">
+					<text @tap="openServiceAgreement">用户服务协议</text>
+					<text class="account-action-divider">·</text>
+					<text @tap="openPrivacyAgreement">隐私政策</text>
+					<text class="account-action-divider">·</text>
+					<text @tap="confirmLogout">退出登录</text>
+				</view>
 
 				<!-- Subscription Notice（订阅通知：无后端支撑，暂隐藏） -->
 				<view class="my-sub-notice-row" v-if="socialUnread > 0" @tap="showSocialNotifications">
@@ -901,8 +908,9 @@
 	import { apiShopInfo } from '@/api/shop.js'
 	import { apiUserInfo } from '@/api/auth.js'
 	import { apiMyOrders, apiOrderDetail, apiOrderRefund, apiOrderComplete } from '@/api/order.js'
-	import { ensureLogin } from '@/utils/login.js'
+	import { ensureLogin, logout } from '@/utils/login.js'
 	import { getToken, getUserInfo, setUserInfo } from '@/utils/auth.js'
+	import { openLegalPage, openPrivacyPolicy } from '@/utils/legal.js'
 	import { uploadFile } from '@/utils/request.js'
 	import { apiSocialNotifications, apiSocialNotificationsRead } from '@/api/social.js'
 	import GroupDiningView from '@/pages/group-dining/group-dining.vue'
@@ -1934,6 +1942,23 @@
 				} else if (name === '反馈与建议') {
 					uni.navigateTo({ url: '/pages/feedback/feedback' });
 				}
+			},
+			openServiceAgreement() {
+				openLegalPage('service')
+			},
+			openPrivacyAgreement() {
+				openPrivacyPolicy()
+			},
+			confirmLogout() {
+				uni.showModal({
+					title: '退出登录',
+					content: '退出后需要重新使用微信登录，已提交的订单不会删除。',
+					confirmText: '退出',
+					confirmColor: '#28784d',
+					success: result => {
+						if (result.confirm) logout()
+					}
+				})
 			},
 			loadSettings() {
 				this.kitchenName = uni.getStorageSync('kitchenName') || '我的厨房';
@@ -8586,6 +8611,9 @@
 	.social-entry::after { border:0; }
 	.social-entry-icon { width:70rpx; height:70rpx; display:flex; align-items:center; justify-content:center; border-radius:22rpx; background:#e9faf5; color:#22bf91; font-size:28rpx; font-weight:900; }
 	.social-entry.couple .social-entry-icon { background:#fff0f2; color:#f2768c; }
+	.my-account-actions { display:flex; align-items:center; justify-content:center; min-height:88rpx; padding:4rpx 24rpx 12rpx; font-size:24rpx; color:#69766e; }
+	.my-account-actions text { padding:16rpx 8rpx; }
+	.my-account-actions .account-action-divider { padding-left:2rpx; padding-right:2rpx; color:#b0bab3; }
 	.social-entry.party .social-entry-icon { background:#fff5df; color:#eaa63c; }
 	.social-entry.chef-entry .social-entry-icon { background:#eef8ff; color:#398bb8; }
 	.social-entry.feedback-entry .social-entry-icon { background:#f2efff; color:#7865c4; }

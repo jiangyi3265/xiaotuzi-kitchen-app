@@ -11,7 +11,21 @@
 			</view>
 
 			<view class="login-panel">
-				<button class="login-button" :loading="loading" :disabled="loading" @tap="handleLogin">
+				<view class="agreement-row" @tap="toggleAgreement">
+					<view class="agreement-check" :class="{ checked: agreementAccepted }"><text v-if="agreementAccepted">✓</text></view>
+					<text class="agreement-copy">我已阅读并同意</text>
+					<text class="agreement-link" @tap.stop="openServiceAgreement">《用户服务协议》</text>
+					<text class="agreement-link" @tap.stop="openPrivacyAgreement">《隐私政策》</text>
+				</view>
+				<button
+					id="privacy-login-button"
+					class="login-button"
+					:loading="loading"
+					:disabled="loading || !agreementAccepted"
+					:open-type="privacyAuthorizationRequired ? 'agreePrivacyAuthorization' : ''"
+					@tap="handleLoginTap"
+					@agreeprivacyauthorization="handlePrivacyAuthorization"
+				>
 					{{ loading ? copy.loading : copy.button }}
 				</button>
 				<text class="hint">{{ copy.hint }}</text>
@@ -23,11 +37,14 @@
 <script>
 	import { doLogin } from '@/utils/login.js'
 	import { getToken } from '@/utils/auth.js'
+	import { acceptLegal, hasAcceptedLegal, openLegalPage, openPrivacyPolicy } from '@/utils/legal.js'
 
 	export default {
 		data() {
 			return {
 				loading: false,
+				agreementAccepted: false,
+				privacyAuthorizationRequired: false,
 				copy: {
 					title: '\u9986\u5bb6\u79c1\u53a8',
 					subtitle: '\u767b\u5f55\u540e\u67e5\u770b\u83dc\u5355\u3001\u4e0b\u5355\u548c\u7ba1\u7406\u53a8\u623f',
@@ -40,11 +57,50 @@
 			}
 		},
 		onShow() {
-			if (getToken()) {
-				this.enterHome()
-			}
+			this.checkEntryState()
 		},
 		methods: {
+			checkPrivacySetting() {
+				return new Promise(resolve => {
+					// #ifdef MP-WEIXIN
+					if (typeof wx !== 'undefined' && typeof wx.getPrivacySetting === 'function') {
+						wx.getPrivacySetting({
+							success: res => resolve(!!res.needAuthorization),
+							fail: () => resolve(false)
+						})
+						return
+					}
+					// #endif
+					resolve(false)
+				})
+			},
+			async checkEntryState() {
+				this.agreementAccepted = this.agreementAccepted || hasAcceptedLegal()
+				this.privacyAuthorizationRequired = await this.checkPrivacySetting()
+				if (getToken() && this.agreementAccepted && !this.privacyAuthorizationRequired) this.enterHome()
+			},
+			toggleAgreement() {
+				this.agreementAccepted = !this.agreementAccepted
+			},
+			openServiceAgreement() {
+				openLegalPage('service')
+			},
+			openPrivacyAgreement() {
+				openPrivacyPolicy()
+			},
+			handleLoginTap() {
+				if (!this.agreementAccepted) {
+					uni.showToast({ title: '请先阅读并同意协议', icon: 'none' })
+					return
+				}
+				if (this.privacyAuthorizationRequired) return
+				this.handleLogin()
+			},
+			handlePrivacyAuthorization() {
+				if (!this.agreementAccepted) return
+				this.privacyAuthorizationRequired = false
+				this.handleLogin()
+			},
 			enterHome() {
 				uni.reLaunch({
 					url: '/pages/index/index'
@@ -52,9 +108,11 @@
 			},
 			async handleLogin() {
 				if (this.loading) return
+				if (!this.agreementAccepted) return
 				this.loading = true
 				try {
 					await doLogin()
+					acceptLegal()
 					uni.showToast({
 						title: this.copy.success,
 						icon: 'success',
@@ -150,6 +208,35 @@
 	.login-panel {
 		padding-bottom: env(safe-area-inset-bottom);
 	}
+
+	.agreement-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-wrap: wrap;
+		min-height: 64rpx;
+		margin-bottom: 14rpx;
+		font-size: 23rpx;
+		line-height: 1.6;
+		color: #6f7c73;
+	}
+
+	.agreement-check {
+		width: 30rpx;
+		height: 30rpx;
+		margin-right: 10rpx;
+		box-sizing: border-box;
+		border: 2rpx solid #8b9990;
+		border-radius: 50%;
+		text-align: center;
+		line-height: 26rpx;
+		font-size: 20rpx;
+		color: #fbfaf5;
+	}
+
+	.agreement-check.checked { border-color: #28784d; background: #28784d; }
+	.agreement-copy { margin-right: 2rpx; }
+	.agreement-link { color: #1e7048; }
 
 	.login-button {
 		height: 96rpx;
