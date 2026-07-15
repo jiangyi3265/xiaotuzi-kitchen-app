@@ -5,7 +5,7 @@
 
 		<view class="content">
 			<view class="brand">
-				<image class="logo" src="/static/logo.png" mode="aspectFit"></image>
+				<image class="logo" src="/static/kitchen_avatar.png" mode="aspectFill"></image>
 				<text class="title">{{ copy.title }}</text>
 				<text class="subtitle">{{ copy.subtitle }}</text>
 			</view>
@@ -123,9 +123,10 @@
 	.logo {
 		width: 112rpx;
 		height: 112rpx;
-		border-radius: 28rpx;
+		border-radius: 50%;
+		border: 4rpx solid rgba(255, 255, 255, 0.88);
 		box-shadow: 0 14rpx 40rpx rgba(32, 58, 43, 0.18);
-		background: rgba(255, 255, 255, 0.76);
+		background: #fff8e9;
 	}
 
 	.title {
