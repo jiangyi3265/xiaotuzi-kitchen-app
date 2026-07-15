@@ -1,7 +1,8 @@
 import config from '@/config/index.js'
-import { getToken, clearAuth } from '@/utils/auth.js'
+import { getToken, setToken, setUserInfo, clearAuth } from '@/utils/auth.js'
 
 const baseUrl = config.baseUrl
+let refreshLoginPromise = null
 
 function buildUrl(url) {
 	if (/^https?:\/\//.test(url)) {
@@ -25,6 +26,46 @@ function getNetworkErrorMsg(err) {
 	return detail ? `网络异常：${detail}` : '网络异常，请检查网络和小程序域名配置'
 }
 
+function refreshWxLogin() {
+	if (refreshLoginPromise) {
+		return refreshLoginPromise
+	}
+	clearAuth()
+	refreshLoginPromise = new Promise((resolve, reject) => {
+		uni.login({
+			provider: 'weixin',
+			success: (loginRes) => {
+				if (!loginRes.code) {
+					reject(new Error('获取微信登录凭证失败'))
+					return
+				}
+				uni.request({
+					url: buildUrl(config.apiPrefix + '/auth/login'),
+					method: 'POST',
+					data: { code: loginRes.code },
+					header: { 'Content-Type': 'application/json;charset=utf-8' },
+					timeout: 15000,
+					success: (res) => {
+						const body = res.data || {}
+						if (res.statusCode === 200 && body.code === 200 && body.token) {
+							setToken(body.token)
+							setUserInfo(body.user)
+							resolve(body)
+							return
+						}
+						reject(body)
+					},
+					fail: reject
+				})
+			},
+			fail: reject
+		})
+	}).finally(() => {
+		refreshLoginPromise = null
+	})
+	return refreshLoginPromise
+}
+
 export function request(options = {}) {
 	const {
 		url,
@@ -33,7 +74,8 @@ export function request(options = {}) {
 		header = {},
 		showLoading = false,
 		loadingText = '加载中...',
-		silent = false
+		silent = false,
+		_authRetried = false
 	} = options
 
 	if (showLoading) {
@@ -63,6 +105,20 @@ export function request(options = {}) {
 					return
 				}
 				if (body.code === 401 || res.statusCode === 401) {
+					const isLoginRequest = url === config.apiPrefix + '/auth/login'
+					if (!isLoginRequest && !_authRetried) {
+						refreshWxLogin().then(() => {
+							request({ ...options, showLoading: false, _authRetried: true }).then(resolve).catch(reject)
+						}).catch((loginError) => {
+							clearAuth()
+							redirectToLogin()
+							if (!silent) {
+								uni.showToast({ title: '登录状态已更新，请重新进入', icon: 'none' })
+							}
+							reject(loginError || body)
+						})
+						return
+					}
 					clearAuth()
 					redirectToLogin()
 					if (!silent) {
