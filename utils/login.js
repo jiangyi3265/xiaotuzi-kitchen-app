@@ -29,7 +29,7 @@ export function goLogin() {
 	const pages = getCurrentPages()
 	const current = pages.length ? pages[pages.length - 1].route : ''
 	if (current === 'pages/login/login') return
-	uni.reLaunch({
+	uni.navigateTo({
 		url: '/pages/login/login'
 	})
 }
@@ -45,6 +45,6 @@ export function ensureLogin() {
 export function logout() {
 	return apiLogout().finally(() => {
 		clearAuth()
-		goLogin()
+		uni.reLaunch({ url: '/pages/index/index' })
 	})
 }

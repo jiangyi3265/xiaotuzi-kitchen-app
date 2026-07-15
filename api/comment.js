@@ -5,7 +5,7 @@ const P = config.apiPrefix
 
 // 某个成品的评论列表，分页
 export function apiCommentList(params) {
-	return get(P + '/comment/list', params)
+	return get(P + '/comment/list', params, { authRequired: false })
 }
 
 // 发表评论

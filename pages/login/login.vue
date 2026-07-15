@@ -28,6 +28,7 @@
 				>
 					{{ loading ? copy.loading : copy.button }}
 				</button>
+				<text class="browse-link" @tap="browseWithoutLogin">暂不登录，先逛逛</text>
 				<text class="hint">{{ copy.hint }}</text>
 			</view>
 		</view>
@@ -60,6 +61,14 @@
 			this.checkEntryState()
 		},
 		methods: {
+			browseWithoutLogin() {
+				const pages = getCurrentPages()
+				if (pages.length > 1) {
+					uni.navigateBack()
+					return
+				}
+				uni.reLaunch({ url: '/pages/index/index' })
+			},
 			checkPrivacySetting() {
 				return new Promise(resolve => {
 					// #ifdef MP-WEIXIN
@@ -265,5 +274,14 @@
 		font-size: 24rpx;
 		line-height: 1.4;
 		color: #7a867d;
+	}
+
+	.browse-link {
+		display: block;
+		min-height: 72rpx;
+		line-height: 72rpx;
+		text-align: center;
+		font-size: 27rpx;
+		color: #2d7650;
 	}
 </style>

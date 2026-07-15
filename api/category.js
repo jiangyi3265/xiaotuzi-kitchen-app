@@ -5,7 +5,7 @@ const P = config.apiPrefix
 
 // 菜品分类树
 export function apiCategoryTree() {
-	return get(P + '/category/tree')
+	return get(P + '/category/tree', {}, { authRequired: false })
 }
 
 // 分类管理列表，店主，含停用

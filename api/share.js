@@ -5,7 +5,7 @@ const P = config.apiPrefix
 
 // 广场列表，分页，仅展示审核通过内容
 export function apiShareList(params) {
-	return get(P + '/share/list', params)
+	return get(P + '/share/list', params, { authRequired: false })
 }
 
 // 发布成品

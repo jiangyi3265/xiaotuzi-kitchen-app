@@ -15,7 +15,7 @@ function redirectToLogin() {
 	const pages = getCurrentPages()
 	const current = pages.length ? pages[pages.length - 1].route : ''
 	if (current !== 'pages/login/login') {
-		uni.reLaunch({
+		uni.navigateTo({
 			url: '/pages/login/login'
 		})
 	}
@@ -75,6 +75,7 @@ export function request(options = {}) {
 		showLoading = false,
 		loadingText = '加载中...',
 		silent = false,
+		authRequired = true,
 		_authRetried = false
 	} = options
 
@@ -105,6 +106,13 @@ export function request(options = {}) {
 					return
 				}
 				if (body.code === 401 || res.statusCode === 401) {
+					if (!authRequired) {
+						if (!silent) {
+							uni.showToast({ title: body.msg || '内容暂时无法加载', icon: 'none' })
+						}
+						reject(body)
+						return
+					}
 					const isLoginRequest = url === config.apiPrefix + '/auth/login'
 					if (!isLoginRequest && !_authRetried) {
 						refreshWxLogin().then(() => {

@@ -5,7 +5,7 @@ const P = config.apiPrefix
 
 // 厨房/店铺信息
 export function apiShopInfo() {
-	return get(P + '/shop/info')
+	return get(P + '/shop/info', {}, { authRequired: false })
 }
 
 // 保存厨房设置

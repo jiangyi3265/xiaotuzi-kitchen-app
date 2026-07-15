@@ -1,6 +1,13 @@
 {
 	"pages": [
 		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "我的厨房",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/login/login",
 			"style": {
 				"navigationBarTitleText": "登录",
@@ -13,13 +20,6 @@
 				"navigationBarTitleText": "服务协议与隐私政策",
 				"navigationBarTextStyle": "black",
 				"navigationBarBackgroundColor": "#F7FAF8"
-			}
-		},
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "我的厨房",
-				"navigationStyle": "custom"
 			}
 		},
 		{

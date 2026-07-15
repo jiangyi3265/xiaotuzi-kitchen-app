@@ -1074,24 +1074,28 @@
 		},
 		onShow() {
 			this.orderNavigating = false;
-			if (!getToken()) {
-				ensureLogin().catch(() => {})
-				return
-			}
 			this.loadSelectedDishIds();
 			this.loadDishes();
 			this.loadSettings();
-			this.loadUserProfile();
-			// 三端互通：拉取后端真实数据（失败/为空显示空状态，不回退假数据）
+			// 菜单和发现内容允许游客浏览，需要账号的能力只在用户主动操作时触发登录。
 			this.loadCategoryTree();
 			this.loadShareSquare();
 			this.loadShopInfo();
-			this.loadMyOrders();
-			this.loadSocialNotifications(true);
-			this.consumeAfterSubmitJump();
+			if (getToken()) {
+				this.loadUserProfile();
+				this.loadMyOrders();
+				this.loadSocialNotifications(true);
+				this.consumeAfterSubmitJump();
+			} else {
+				this.currentUser = null;
+				this.myOrders = [];
+				this.ordersTotal = 0;
+				this.socialUnread = 0;
+				this.socialNotifications = [];
+			}
 			this.$nextTick(() => {
 				const groupView = this.$refs.groupDining;
-				if (this.currentTabbar === 'group' && groupView) {
+				if (getToken() && this.currentTabbar === 'group' && groupView) {
 					if (groupView.room) groupView.refresh();
 					else groupView.loadRooms();
 				}
@@ -1500,6 +1504,10 @@
 			},
 			onSettingsTap() {
 				if (this.tutorialStep > 0) return;
+				if (!getToken()) {
+					ensureLogin().catch(() => {});
+					return;
+				}
 				uni.navigateTo({
 					url: '/pages/kitchen-settings/kitchen-settings'
 				});
@@ -1511,12 +1519,20 @@
 					}
 					return;
 				}
+				if (!getToken()) {
+					ensureLogin().catch(() => {});
+					return;
+				}
 				uni.navigateTo({
 					url: '/pages/category-manage/category-manage'
 				});
 			},
 			onDishManageTap() {
 				if (this.tutorialStep > 0) return;
+				if (!getToken()) {
+					ensureLogin().catch(() => {});
+					return;
+				}
 				uni.navigateTo({
 					url: '/pages/dish-manage/dish-manage'
 				});
@@ -1539,6 +1555,10 @@
 			},
 			switchTabbar(tabbar) {
 				if (this.tutorialStep > 0) return; // Prevent switching tabbar during tutorial
+				if (['order', 'group', 'my'].includes(tabbar) && !getToken()) {
+					ensureLogin().catch(() => {});
+					return;
+				}
 				this.currentTabbar = tabbar;
 				if (tabbar === 'my') this.loadSocialNotifications();
 			},
@@ -1563,6 +1583,10 @@
 				try { await apiSocialNotificationsRead(); this.socialUnread = 0; } catch (e) {}
 			},
 			onAddDishTap() {
+				if (!getToken()) {
+					ensureLogin().catch(() => {});
+					return;
+				}
 				if (this.tutorialStep === 1) {
 					this.nextTutorialStep();
 				} else {
@@ -1610,6 +1634,10 @@
 				if (this.orderNavigating) return;
 				if (this.selectedDishIds.length === 0) {
 					uni.showToast({ title: '请先选择菜品', icon: 'none' });
+					return;
+				}
+				if (!getToken()) {
+					ensureLogin().catch(() => {});
 					return;
 				}
 				const selectedDish = this.selectedKitchenDishes[0] || this.activeKitchenDish || {};

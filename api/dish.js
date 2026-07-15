@@ -5,7 +5,7 @@ const P = config.apiPrefix
 
 // 菜品列表，可按分类过滤，分页，仅上架
 export function apiDishList(params) {
-	return get(P + '/dish/list', params)
+	return get(P + '/dish/list', params, { authRequired: false })
 }
 
 // 菜品管理列表，店主，含下架
@@ -15,7 +15,7 @@ export function apiDishManageList(params) {
 
 // 菜品详情，含规格和步骤
 export function apiDishDetail(id) {
-	return get(P + '/dish/detail/' + id)
+	return get(P + '/dish/detail/' + id, {}, { authRequired: false })
 }
 
 // 新增菜品
