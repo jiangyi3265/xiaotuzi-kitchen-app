@@ -19,6 +19,11 @@ export function apiOrderDetail(id) {
 	return get(P + '/order/detail/' + id)
 }
 
+// 保存订单采购清单中的食材规格和采购进度
+export function apiSaveGroceryList(id, items) {
+	return post(P + '/order/grocery/' + id, { items })
+}
+
 // 申请退款
 export function apiOrderRefund(id, data = {}) {
 	return post(P + '/order/refund/' + id, data)
