@@ -49,6 +49,7 @@
 	import { apiCoupleCreate, apiCoupleJoin, apiCoupleDetail, apiCoupleAnniversary, apiCoupleLeaderboard, apiCoupleUnbind, apiSocialNotifications, apiSocialNotificationsRead } from '@/api/social.js'
 	import { ensureLogin } from '@/utils/login.js'
 	import CoupleOrderPanel from '@/components/couple-order-panel/couple-order-panel.vue'
+	import { guardFeatureOrRedirect } from '@/utils/feature.js'
 
 	export default {
 		components: { CoupleOrderPanel },
@@ -85,7 +86,8 @@
 				return this.notices.find(item => item.type === 'couple_feed') || {}
 			}
 		},
-		onLoad(options = {}) {
+		async onLoad(options = {}) {
+			if (await guardFeatureOrRedirect()) return;
 			if (options.code) this.inviteCode = String(options.code).trim().toUpperCase()
 			this.loadRank()
 		},

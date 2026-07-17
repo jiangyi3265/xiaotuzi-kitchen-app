@@ -2,7 +2,7 @@
 	<view class="page-container" :class="['tab-' + currentTabbar, { 'tutorial-active': tutorialStep > 0 }]">
 		<!-- Header Banner for Kitchen Tab -->
 		<view class="header-banner" v-if="currentTabbar === 'kitchen'">
-			<image class="banner-bg" src="/static/kitchen_banner.png" mode="aspectFill"></image>
+			<image class="banner-bg" :src="kitchenBanner" mode="aspectFill"></image>
 			<view class="banner-mask"></view>
 			
 			<!-- Custom Status Bar and Nav Bar -->
@@ -123,10 +123,10 @@
 		<!-- Dashboard Card ("我的厨房") - Only on Kitchen tab -->
 		<view class="dashboard-card" v-if="currentTabbar === 'kitchen'">
 			<view class="card-top-row">
-				<image class="kitchen-avatar" src="/static/kitchen_avatar.png" mode="aspectFill"></image>
+				<image class="kitchen-avatar" :src="kitchenAvatar" mode="aspectFill"></image>
 				<view class="kitchen-info">
 					<text class="kitchen-title">{{ kitchenName }}</text>
-					<text class="kitchen-subtitle">世间万物，唯有美食不可辜负</text>
+					<text class="kitchen-subtitle">{{ kitchenSubtitle }}</text>
 				</view>
 				<view class="chef-hat-icon-wrapper" @tap="onSettingsTap">
 					<image class="svg-chef-hat" src="/static/chef_hat.svg" mode="aspectFit"></image>
@@ -150,6 +150,9 @@
 			<view class="controls-container">
 				<view class="control-btn btn-random" v-if="showRandom && flatKitchenDishes.length > 0" @tap="onRandomTap">
 					<text>随机选</text>
+				</view>
+				<view class="control-btn btn-add" :class="{ 'highlight-tutorial': tutorialStep === 1 }" @tap="onAddDishTap">
+					<text>上传菜谱</text>
 				</view>
 				<view class="control-btn btn-search" @tap="onSearchTap">
 					<image class="svg-search" src="/static/search.svg" mode="aspectFit"></image>
@@ -184,8 +187,8 @@
 						</scroll-view>
 					</view>
 
-					<view class="kitchen-category-body" :class="{ 'no-level-one-strip': kitchenCategoryTree.length <= 1 }">
-						<view class="kitchen-side-pane">
+					<view class="kitchen-category-body" :class="{ 'no-level-one-strip': kitchenCategoryTree.length <= 1, 'search-active': searchKeyword }">
+						<view class="kitchen-side-pane" v-if="!searchKeyword">
 							<view 
 								class="side-category" 
 								:class="{ active: activeKitchenLevelTwoId === item.id }" 
@@ -197,8 +200,9 @@
 							</view>
 						</view>
 						<view class="kitchen-main-pane">
-							<view class="category-main-head" v-if="activeKitchenLevelTwo">
+							<view class="category-main-head" v-if="activeKitchenLevelTwo || searchKeyword">
 								<text>{{ searchKeyword ? `搜索：${searchKeyword}` : activeKitchenLevelTwo.name }}</text>
+								<text class="search-clear-action" v-if="searchKeyword" @tap="clearSearch">清除</text>
 							</view>
 							<view class="kitchen-dish-list" v-if="activeKitchenDishes.length > 0">
 								<view 
@@ -211,9 +215,9 @@
 									<image class="kitchen-dish-img" :src="dish.image" mode="aspectFill"></image>
 									<view class="kitchen-dish-info">
 										<text class="kitchen-dish-name">{{ dish.name }}</text>
-										<text class="kitchen-dish-sales">{{ dish.desc || '家常美味 · 下饭好菜' }}</text>
+										<text class="kitchen-dish-sales">{{ searchKeyword ? dishSearchMeta(dish) : (dish.desc || '家常美味 · 下饭好菜') }}</text>
 									</view>
-									<view class="dish-action-cell" :class="{quantity:isDishSelected(dish.id)}">
+									<view class="dish-action-cell" v-if="orderEnabled" :class="{quantity:isDishSelected(dish.id)}">
 										<view class="dish-inline-qty" v-if="isDishSelected(dish.id)">
 											<text class="dish-qty-minus" @tap.stop="changeDishQuantity(dish.id,-1)">−</text>
 											<text class="dish-qty-number">{{getDishQuantity(dish.id)}}</text>
@@ -230,7 +234,7 @@
 					</view>
 					
 					<!-- Bottom Floating Shopping Cart Panel -->
-					<view class="cart-panel" :class="{ 'highlight-tutorial': tutorialStep === 3 }">
+					<view class="cart-panel" v-if="orderEnabled" :class="{ 'highlight-tutorial': tutorialStep === 3 }">
 						<view class="cart-left" @tap="openSelectedDrawer">
 							<view class="cart-icon-container">
 								<image class="svg-cart" src="/static/cart.svg" mode="aspectFit"></image>
@@ -280,7 +284,7 @@
 								<text class="kitchen-dish-sales">{{ dish.desc || '今日推荐 · 一起开饭' }}</text>
 								<text class="today-dish-price">￥{{ dish.price || 0 }}</text>
 							</view>
-							<view class="dish-action-cell" :class="{quantity:isDishSelected(dish.id)}">
+							<view class="dish-action-cell" v-if="orderEnabled" :class="{quantity:isDishSelected(dish.id)}">
 								<view class="dish-inline-qty" v-if="isDishSelected(dish.id)">
 									<text class="dish-qty-minus" @tap.stop="changeDishQuantity(dish.id,-1)">−</text>
 									<text class="dish-qty-number">{{getDishQuantity(dish.id)}}</text>
@@ -296,7 +300,7 @@
 							<text class="alert-text">{{ activeTodayCategory === 'hotpot' ? '火锅类' : '烧烤' }}暂时还没有菜品</text>
 						</view>
 					</view>
-					<view class="today-order-bar">
+					<view class="today-order-bar" v-if="orderEnabled">
 						<view class="today-order-summary" @tap="openSelectedDrawer"><image src="/static/cart.svg" mode="aspectFit"></image><text>已选 {{ selectedTotalCount }} 份</text></view>
 						<button open-type="share" @tap="onInviteTap">邀请下单</button>
 						<view class="today-order-submit" :class="{ active: selectedTotalCount > 0 }" @tap="onDoneTap">去下单</view>
@@ -442,7 +446,7 @@
 				</view>
 
 				<view class="share-composer" @tap="onPublishResultTap">
-					<image class="share-composer-avatar" src="/static/kitchen_avatar.png" mode="aspectFill"></image>
+					<image class="share-composer-avatar" :src="userAvatar" mode="aspectFill"></image>
 					<view class="share-composer-placeholder">
 						<text>今天做了什么好菜？</text>
 					</view>
@@ -491,9 +495,9 @@
 				<!-- Profile Info Card -->
 				<view class="my-profile-card">
 					<view class="profile-left-col">
-						<image class="my-profile-avatar" src="/static/kitchen_avatar.png" mode="aspectFill"></image>
+						<image class="my-profile-avatar" :src="userAvatar" mode="aspectFill"></image>
 						<view class="profile-names">
-							<view class="profile-username-row">
+							<view class="profile-username-row" @tap="editNickname">
 								<text class="profile-username">{{ userDisplayName }}</text>
 								<image class="username-edit-pen-img" src="/static/edit_green.svg" mode="aspectFit"></image>
 							</view>
@@ -512,22 +516,29 @@
 				<!-- Function menu -->
 				<view class="my-swiper-menu-box">
 					<view class="my-grid-layout">
-						<view class="my-grid-item-cell social-entry couple" @tap="onMyMenuTap('情侣空间')"><view class="social-entry-icon">♥</view><text class="my-grid-item-label">情侣空间</text></view>
-						<view class="my-grid-item-cell social-entry party" @tap="onMyMenuTap('多人聚餐')"><view class="social-entry-icon">聚</view><text class="my-grid-item-label">多人聚餐</text></view>
-						<view class="my-grid-item-cell social-entry chef-entry" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
+						<view class="my-grid-item-cell social-entry couple" v-if="orderEnabled" @tap="onMyMenuTap('情侣空间')"><view class="social-entry-icon">♥</view><text class="my-grid-item-label">情侣空间</text></view>
+						<view class="my-grid-item-cell social-entry party" v-if="orderEnabled" @tap="onMyMenuTap('多人聚餐')"><view class="social-entry-icon">聚</view><text class="my-grid-item-label">多人聚餐</text></view>
+						<view class="my-grid-item-cell social-entry chef-entry" v-if="orderEnabled" @tap="onMyMenuTap('代炒厨师申请')"><view class="social-entry-icon">厨</view><text class="my-grid-item-label">代炒厨师申请</text></view>
 						<view class="my-grid-item-cell social-entry feedback-entry" @tap="onMyMenuTap('反馈与建议')"><view class="social-entry-icon">议</view><text class="my-grid-item-label">反馈与建议</text></view>
-						<view class="my-grid-item-cell" @tap="onMyMenuTap('美食日历')" v-if="showDiary">
+						<view class="my-grid-item-cell" @tap="onMyMenuTap('美食日历')" v-if="showDiary && socialEnabled">
 							<view class="my-grid-icon-circle soft-bg-mint">
 								<image class="my-grid-svg" src="/static/my_calendar.svg" mode="aspectFit"></image>
 							</view>
 							<text class="my-grid-item-label">美食日历</text>
 						</view>
-						<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('订单管理')"><view class="social-entry-icon">单</view><text class="my-grid-item-label">订单管理</text></view>
+						<view class="my-grid-item-cell social-entry" v-if="orderEnabled" @tap="onMyMenuTap('订单管理')"><view class="social-entry-icon">单</view><text class="my-grid-item-label">订单管理</text></view>
 						<button class="my-grid-item-cell social-entry native-entry" open-type="share"><view class="social-entry-icon">享</view><text class="my-grid-item-label">分享好友</text></button>
 						<button class="my-grid-item-cell social-entry native-entry" open-type="contact"><view class="social-entry-icon">客</view><text class="my-grid-item-label">联系客服</text></button>
 						<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('申请加盟')"><view class="social-entry-icon">盟</view><text class="my-grid-item-label">申请加盟</text></view>
-						<view class="my-grid-item-cell social-entry" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
+						<view class="my-grid-item-cell social-entry" v-if="orderEnabled" @tap="onMyMenuTap('配送员申请')"><view class="social-entry-icon">送</view><text class="my-grid-item-label">配送员申请</text></view>
 					</view>
+				</view>
+				<view class="official-account-card">
+					<view class="official-account-copy">
+						<text class="official-account-title">关注公众号</text>
+						<text class="official-account-desc">长按识别二维码，及时收到上新和活动消息</text>
+					</view>
+					<image class="official-account-qr" :src="officialAccountQr" mode="aspectFit" :show-menu-by-longpress="true" @tap="previewOfficialAccountQr"></image>
 				</view>
 				<view class="my-account-actions">
 					<text @tap="openServiceAgreement">用户服务协议</text>
@@ -538,7 +549,7 @@
 				</view>
 
 				<!-- Subscription Notice（订阅通知：无后端支撑，暂隐藏） -->
-				<view class="my-sub-notice-row" v-if="socialUnread > 0" @tap="showSocialNotifications">
+				<view class="my-sub-notice-row" v-if="socialUnread > 0 && socialEnabled" @tap="showSocialNotifications">
 					<view class="sub-notice-left-side">
 						<image class="bell-alert-icon" src="/static/discover_bell.svg" mode="aspectFit"></image>
 						<view class="sub-notice-text-content">
@@ -559,8 +570,8 @@
 			</view>
 		</view>
 
-		<view class="selected-drawer-mask" v-if="showSelectedDrawer" @tap="closeSelectedDrawer"></view>
-		<view class="selected-drawer" v-if="showSelectedDrawer" @tap.stop>
+		<view class="selected-drawer-mask" v-if="showSelectedDrawer && orderEnabled" @tap="closeSelectedDrawer"></view>
+		<view class="selected-drawer" v-if="showSelectedDrawer && orderEnabled" @tap.stop>
 			<view class="selected-drawer-head">
 				<text class="selected-drawer-title">已选</text>
 				<view class="selected-clear" :class="{ disabled: selectedTotalCount === 0 }" @tap="clearSelectedDishes">
@@ -614,17 +625,17 @@
 				<text class="tabbar-text">厨房</text>
 			</view>
 			
-			<view class="tab-bar-item" :class="{ active: currentTabbar === 'order' }" @tap="switchTabbar('order')">
+			<view class="tab-bar-item" v-if="orderEnabled" :class="{ active: currentTabbar === 'order' }" @tap="switchTabbar('order')">
 				<image class="tabbar-icon" :src="currentTabbar === 'order' ? '/static/tab_order_active.svg' : '/static/tab_order.svg'" mode="aspectFit"></image>
 				<text class="tabbar-text">订单</text>
 			</view>
 
-			<view class="tab-bar-item" :class="{ active: currentTabbar === 'group' }" @tap="switchTabbar('group')">
+			<view class="tab-bar-item" v-if="orderEnabled" :class="{ active: currentTabbar === 'group' }" @tap="switchTabbar('group')">
 				<image class="tabbar-icon" :src="currentTabbar === 'group' ? '/static/tab_group_active.svg' : '/static/tab_group.svg'" mode="aspectFit"></image>
 				<text class="tabbar-text">多人聚餐</text>
 			</view>
-			
-			<view class="tab-bar-item" :class="{ active: currentTabbar === 'discover' }" @tap="switchTabbar('discover')">
+
+			<view class="tab-bar-item" v-if="socialEnabled" :class="{ active: currentTabbar === 'discover' }" @tap="switchTabbar('discover')">
 				<view class="tabbar-icon-container">
 					<image class="tabbar-icon" :src="currentTabbar === 'discover' ? '/static/tab_discover_active.svg' : '/static/tab_discover.svg'" mode="aspectFit"></image>
 					<view class="badge-dot"></view>
@@ -687,7 +698,7 @@
 			
 			<view class="drawer-options-list">
 				<!-- Option 1: 去分享广场找灵感 -->
-				<view class="drawer-option-item" @tap="goExplore">
+				<view class="drawer-option-item" v-if="socialEnabled" @tap="goExplore">
 					<view class="option-icon-bg bg-steal">
 						<image class="option-icon" src="/static/steal_bag.svg" mode="aspectFit"></image>
 					</view>
@@ -906,13 +917,15 @@
 	import { apiShareList, apiShareLike, apiSharePublish } from '@/api/share.js'
 	import { apiCommentList, apiCommentAdd } from '@/api/comment.js'
 	import { apiShopInfo } from '@/api/shop.js'
-	import { apiUserInfo } from '@/api/auth.js'
+	import { apiUserInfo, apiUpdateProfile } from '@/api/auth.js'
+	import config from '@/config/index.js'
 	import { apiMyOrders, apiOrderDetail, apiOrderRefund, apiOrderComplete } from '@/api/order.js'
 	import { ensureLogin, logout } from '@/utils/login.js'
 	import { getToken, getUserInfo, setUserInfo } from '@/utils/auth.js'
 	import { openLegalPage, openPrivacyPolicy } from '@/utils/legal.js'
 	import { uploadFile } from '@/utils/request.js'
 	import { apiSocialNotifications, apiSocialNotificationsRead } from '@/api/social.js'
+	import { refreshFeatureEnabled, isFeatureEnabledCached } from '@/utils/feature.js'
 	import GroupDiningView from '@/pages/group-dining/group-dining.vue'
 
 	export default {
@@ -924,6 +937,11 @@
 				socialUnread: 0,
 				socialNotifications: [],
 				currentTabbar: 'kitchen', // 'kitchen' | 'order' | 'group' | 'discover' | 'my'
+				// 功能总开关（由后台 sys_config: wx.feature.enabled 控制）：
+				// orderEnabled 控点餐/外卖入口，socialEnabled 控分享/社交入口。
+				// 默认取本地缓存值（无缓存=关闭=隐藏），onShow 时从后端刷新。
+				orderEnabled: isFeatureEnabledCached(),
+				socialEnabled: isFeatureEnabledCached(),
 				tutorialStep: 0,          // 0 to 4 (onboarding)
 				showAddDrawer: false,
 				showSelectedDrawer: false,
@@ -978,6 +996,24 @@
 			}
 		},
 		computed: {
+			kitchenBanner() {
+				return this.resolveAssetUrl(this.shopInfo && this.shopInfo.banner, '/static/kitchen_banner.png');
+			},
+			kitchenAvatar() {
+				return this.resolveAssetUrl(this.shopInfo && this.shopInfo.avatar, '/static/kitchen_avatar.png');
+			},
+			kitchenSubtitle() {
+				return (this.shopInfo && this.shopInfo.subtitle) || '世间万物，唯有美食不可辜负';
+			},
+			officialAccountQr() {
+				return this.resolveAssetUrl(this.shopInfo && this.shopInfo.officialAccountQr, '/static/official_account_qr.jpg');
+			},
+			userAvatar() {
+				return this.resolveAssetUrl(this.currentUser && this.currentUser.avatar, '/static/kitchen_avatar.png');
+			},
+			isKitchenOwner() {
+				return String((this.currentUser && this.currentUser.isOwner) || '0') === '1';
+			},
 			activeKitchenLevelOne() {
 				return this.kitchenCategoryTree.find(item => item.id === this.activeKitchenLevelOneId) || this.kitchenCategoryTree[0] || null;
 			},
@@ -988,11 +1024,13 @@
 				return this.activeKitchenLevelTwoList.find(item => item.id === this.activeKitchenLevelTwoId) || this.activeKitchenLevelTwoList[0] || null;
 			},
 			activeKitchenDishes() {
-				const list = this.activeKitchenLevelTwo ? (this.activeKitchenLevelTwo.dishes || []) : [];
 				const keyword = this.searchKeyword.trim().toLowerCase();
+				const list = keyword
+					? this.flatKitchenDishes
+					: (this.activeKitchenLevelTwo ? (this.activeKitchenLevelTwo.dishes || []) : []);
 				if (!keyword) return list;
 				return list.filter(dish => {
-					return [dish.name, dish.desc, dish.levelOneName, dish.levelTwoName]
+					return [dish.name, dish.desc, dish.ingredients, dish.levelOneName, dish.levelTwoName]
 						.some(value => String(value || '').toLowerCase().includes(keyword));
 				});
 			},
@@ -1081,6 +1119,7 @@
 			this.loadCategoryTree();
 			this.loadShareSquare();
 			this.loadShopInfo();
+			this.loadFeatureFlags();
 			if (getToken()) {
 				this.loadUserProfile();
 				this.loadMyOrders();
@@ -1119,6 +1158,16 @@
 			};
 		},
 		methods: {
+			resolveAssetUrl(value, fallback = '') {
+				const url = String(value || '').trim();
+				if (!url) return fallback;
+				if (/^(https?:|data:|blob:|wxfile:)/i.test(url) || url.startsWith('/static/')) return url;
+				return config.baseUrl.replace(/\/$/, '') + '/' + url.replace(/^\//, '');
+			},
+			dishSearchMeta(dish) {
+				const categories = [dish.levelOneName, dish.levelTwoName].filter(Boolean).join(' · ');
+				return categories || dish.desc || dish.ingredients || '相关菜谱';
+			},
 			categoryPreview(category) {
 				const groups = (category && category.children) || [];
 				for (const group of groups) {
@@ -1163,7 +1212,8 @@
 						image: d.cover || '/static/onion_chicken.png',
 						sales: d.sales || 0,
 						price: d.virtualPrice || 0,
-						todayType: d.todayType || ''
+						todayType: d.todayType || '',
+						ingredients: d.ingredients || ''
 					});
 				});
 				const collectDishes = (node) => {
@@ -1226,6 +1276,15 @@
 					};
 					this.maybeShowAnnouncement();
 				} catch (e) {}
+			},
+			async loadFeatureFlags() {
+				const enabled = await refreshFeatureEnabled();
+				this.orderEnabled = enabled;
+				this.socialEnabled = enabled;
+				// 功能关闭时，避免停留在被隐藏的分栏（订单/多人聚餐/发现）
+				if (!enabled && ['order', 'group', 'discover'].includes(this.currentTabbar)) {
+					this.currentTabbar = 'kitchen';
+				}
 			},
 			async loadUserProfile() {
 				const cached = getUserInfo();
@@ -1555,6 +1614,9 @@
 			},
 			switchTabbar(tabbar) {
 				if (this.tutorialStep > 0) return; // Prevent switching tabbar during tutorial
+				// 功能未开启时，禁止进入被隐藏的分栏
+				if ((tabbar === 'order' || tabbar === 'group') && !this.orderEnabled) return;
+				if (tabbar === 'discover' && !this.socialEnabled) return;
 				if (['order', 'group', 'my'].includes(tabbar) && !getToken()) {
 					ensureLogin().catch(() => {});
 					return;
@@ -1582,9 +1644,20 @@
 				uni.showModal({ title: '消息通知', content, showCancel: false });
 				try { await apiSocialNotificationsRead(); this.socialUnread = 0; } catch (e) {}
 			},
-			onAddDishTap() {
-				if (!getToken()) {
-					ensureLogin().catch(() => {});
+			async onAddDishTap() {
+				try {
+					await ensureLogin();
+					await this.loadUserProfile();
+				} catch (e) {
+					return;
+				}
+				if (!this.isKitchenOwner) {
+					uni.showModal({
+						title: '需要店主权限',
+						content: '请在后台进入“私房菜管理 → 小程序用户”，找到当前账号并点“修改”，将“是否店主”设为“是”。',
+						showCancel: false,
+						confirmText: '我知道了'
+					});
 					return;
 				}
 				if (this.tutorialStep === 1) {
@@ -1592,6 +1665,44 @@
 				} else {
 					this.showAddDrawer = true;
 				}
+			},
+			async editNickname() {
+				try {
+					await ensureLogin();
+				} catch (e) {
+					return;
+				}
+				uni.showModal({
+					title: '修改昵称',
+					editable: true,
+					placeholderText: '请输入新昵称',
+					content: this.currentUser && this.currentUser.nickname ? this.currentUser.nickname : '',
+					success: async (result) => {
+						if (!result.confirm) return;
+						const nickname = String(result.content || '').trim();
+						if (!nickname) {
+							uni.showToast({ title: '昵称不能为空', icon: 'none' });
+							return;
+						}
+						if (nickname.length > 30) {
+							uni.showToast({ title: '昵称最多30个字', icon: 'none' });
+							return;
+						}
+						try {
+							const res = await apiUpdateProfile({ nickname });
+							const user = (res && res.data) || { ...this.currentUser, nickname };
+							this.currentUser = user;
+							setUserInfo(user);
+							uni.showToast({ title: '昵称已更新', icon: 'success' });
+						} catch (e) {}
+					}
+				});
+			},
+			clearSearch() {
+				this.searchKeyword = '';
+			},
+			previewOfficialAccountQr() {
+				uni.previewImage({ current: this.officialAccountQr, urls: [this.officialAccountQr] });
 			},
 			closeAddDrawer() {
 				this.showAddDrawer = false;
@@ -1631,6 +1742,7 @@
 				// #endif
 			},
 			onDoneTap() {
+				if (!this.orderEnabled) return;
 				if (this.orderNavigating) return;
 				if (this.selectedDishIds.length === 0) {
 					uni.showToast({ title: '请先选择菜品', icon: 'none' });
@@ -1782,6 +1894,7 @@
 
 			// Discover page methods
 			async onPublishResultTap() {
+				if (!this.socialEnabled) return;
 				if (this.publishingShare) return;
 				try {
 					await ensureLogin();
@@ -1831,10 +1944,10 @@
 				});
 			},
 			toggleSharePostLike(id) {
-				const post = this.shareSquarePosts.find(item => item.id === id);
+				const post = this.shareSquarePosts.find(item => String(item.id) === String(id));
 				if (!post) return;
-				// 仅真实后端动态(id 为数字)可点赞，用后端返回的 liked 决定 UI
-				if (typeof id !== 'number') {
+				// Java Long 在小程序 JSON 中可能序列化为字符串，数字字符串同样是有效后端 ID。
+				if (!/^\d+$/.test(String(id || ''))) {
 					uni.showToast({ title: '这条内容暂不能点赞', icon: 'none' });
 					return;
 				}
@@ -1863,8 +1976,8 @@
 				uni.setStorageSync('likedSharePosts', cache);
 			},
 			async onCommentPostTap(post) {
-				// 仅真实后端动态(id 为数字)可评论
-				if (!post || typeof post.id !== 'number') {
+				// Java Long 在小程序 JSON 中可能序列化为字符串，数字字符串同样是有效后端 ID。
+				if (!post || !/^\d+$/.test(String(post.id || ''))) {
 					uni.showToast({ title: '这条内容暂不能评论', icon: 'none' });
 					return;
 				}
@@ -1947,6 +2060,10 @@
 				});
 			},
 			onMyMenuTap(name) {
+				// 功能未开启时，拦截点餐/社交相关入口
+				const orderMenus = ['多人聚餐', '订单管理', '配送员申请', '代炒厨师申请', '情侣空间'];
+				if (orderMenus.includes(name) && !this.orderEnabled) return;
+				if (name === '美食日历' && !this.socialEnabled) return;
 				if (name === '美食日历') {
 					if (!this.showDiary) {
 						uni.showToast({ title: '美食日历功能已关闭', icon: 'none' });
@@ -8653,4 +8770,46 @@
 	.dish-qty-number { min-width:28rpx; text-align:center; font-size:24rpx; font-weight:900; }
 	.my-order-source-tag { height:34rpx; padding:0 12rpx; border-radius:17rpx; display:flex; align-items:center; background:#e8faf4; color:#22a982; font-size:21rpx; font-weight:800; }
 	.native-entry { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+
+	/* 用户可见的核心入口：上传菜谱与全局搜索。 */
+	.tab-kitchen .btn-add {
+		display: flex;
+		width: 142rpx;
+		height: 56rpx;
+		padding: 0 20rpx;
+		align-items: center;
+		justify-content: center;
+		border-radius: 28rpx;
+		background: #21c997;
+		color: #ffffff;
+		font-size: 24rpx;
+		line-height: 1;
+		box-shadow: 0 8rpx 18rpx rgba(33, 201, 151, .20);
+		box-sizing: border-box;
+	}
+	.tab-kitchen .btn-search { width: 108rpx; }
+	.tab-kitchen .controls-container { gap: 8rpx; }
+	.tab-kitchen .tabs-container { gap: 30rpx; }
+	.tab-kitchen .kitchen-category-body.search-active .kitchen-main-pane { width: 100%; padding-left: 24rpx; padding-right: 24rpx; }
+	.search-clear-action { margin-left: auto; padding: 20rpx 0 20rpx 28rpx; color: #1aae82; font-size: 24rpx; font-weight: 800; }
+
+	/* “我的”页公众号卡片：保留足够留白，让二维码可以可靠长按识别。 */
+	.official-account-card {
+		margin: 22rpx 28rpx 8rpx;
+		padding: 28rpx 30rpx;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 24rpx;
+		border: 1rpx solid #e4f1ec;
+		border-radius: 28rpx;
+		background: #fbfefd;
+		box-shadow: 0 10rpx 30rpx rgba(36, 61, 54, .06);
+		box-sizing: border-box;
+	}
+	.official-account-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16rpx; }
+	.official-account-title { font-size: 32rpx; line-height: 1; font-weight: 900; color: #202725; }
+	.official-account-desc { max-width: 330rpx; font-size: 24rpx; line-height: 1.6; color: #74807b; }
+	.official-account-qr { width: 210rpx; height: 210rpx; flex-shrink: 0; border-radius: 16rpx; background: #ffffff; }
+	.profile-username-row { padding: 10rpx 12rpx 10rpx 0; }
 </style>

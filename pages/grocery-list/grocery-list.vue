@@ -41,6 +41,7 @@
 import { apiOrderDetail, apiSaveGroceryList } from '@/api/order.js'
 import { apiDishDetail } from '@/api/dish.js'
 import { ensureLogin } from '@/utils/login.js'
+import { guardFeatureOrRedirect } from '@/utils/feature.js'
 export default {
 	data(){return {orderId:'',orderNo:'',stockGroup:false,loading:true,dishes:[],groceries:[],saveTimer:null}},
 	computed:{
@@ -48,7 +49,7 @@ export default {
 		progress(){return this.groceries.length?Math.round(this.checkedCount/this.groceries.length*100):0},
 		summaryTitle(){if(this.progress===100&&this.groceries.length)return'食材已经买齐';return this.stockGroup?'采购清单已生成，可发给商家备货':'按清单采购，回家就能开做'}
 	},
-	onLoad(options){this.orderId=String(options.orderId||'');this.stockGroup=String(options.stockGroup||'')==='1';this.load()},
+	async onLoad(options){if(await guardFeatureOrRedirect())return;this.orderId=String(options.orderId||'');this.stockGroup=String(options.stockGroup||'')==='1';this.load()},
 	onUnload(){if(this.saveTimer)clearTimeout(this.saveTimer);if(this.groceries.length)this.saveGroceries()},
 	methods:{
 		async load(){if(!/^\d+$/.test(this.orderId)){this.loading=false;return}try{await ensureLogin();const res=await apiOrderDetail(this.orderId);const order=(res&&res.data)||{};this.orderNo=order.orderNo||'';const items=Array.isArray(order.items)?order.items:[];const details=await Promise.all(items.map(item=>apiDishDetail(item.dishId).then(r=>({item,data:r&&r.data})).catch(()=>({item,data:null}))));const map={};this.dishes=details.filter(x=>x.data).map(({item,data})=>{const ingredients=this.parseIngredients(data.ingredients);ingredients.forEach(name=>{const key=this.normalizeKey(name);if(!map[key])map[key]={key,name,quantity:0,dishNames:[],checked:false,purchaseSpec:''};map[key].quantity+=Number(item.quantity)||1;if(!map[key].dishNames.includes(data.dishName))map[key].dishNames.push(data.dishName)});return{id:data.id,name:data.dishName,cover:data.cover,ingredientCount:ingredients.length,stepCount:(data.steps||[]).length}});const saved=uni.getStorageSync('groceryProgress:'+this.orderId)||{};const remote=this.parseSavedGroceries(order.groceryJson);this.groceries=Object.values(map).map(i=>{const existing=remote[this.normalizeKey(i.name)]||{};const local=saved[i.key]||{};return{...i,checked:existing.checked===true||(!remote[this.normalizeKey(i.name)]&&(local===1||local.checked===true)),purchaseSpec:String(existing.purchaseSpec||local.purchaseSpec||'')}});if(!order.groceryJson&&this.groceries.length)this.scheduleSave()}catch(e){uni.showToast({title:'采购清单读取失败',icon:'none'})}finally{this.loading=false}},

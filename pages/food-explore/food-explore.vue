@@ -99,6 +99,7 @@
 
 <script>
 	import { apiDishList } from '@/api/dish.js'
+	import { guardFeatureOrRedirect } from '@/utils/feature.js'
 
 	export default {
 		data() {
@@ -108,7 +109,8 @@
 				exploreItems: []
 			}
 		},
-		onLoad() {
+		async onLoad() {
+			if (await guardFeatureOrRedirect()) return;
 			this.loadExplore();
 		},
 		onShow() {

@@ -45,6 +45,7 @@
 <script>
 import { apiServiceApplicationMy, apiServiceApplicationApply } from '@/api/service-application.js'
 import { ensureLogin } from '@/utils/login.js'
+import { guardFeatureOrRedirect } from '@/utils/feature.js'
 
 export default {
 	data() {
@@ -57,7 +58,8 @@ export default {
 		roleName() { return this.type === '0' ? '配送员' : '代炒厨师' },
 		regionText() { const a = this.application || {}; return [a.province, a.city, a.district].filter(Boolean).join(' ') || '未填写' }
 	},
-	onLoad(options) {
+	async onLoad(options) {
+		if (await guardFeatureOrRedirect()) return
 		this.type = options.type === '1' ? '1' : '0'
 		const region = uni.getStorageSync('currentRegion') || {}
 		this.form.province = region.province || ''

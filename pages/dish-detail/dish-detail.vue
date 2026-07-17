@@ -106,7 +106,7 @@
 		</view>
 
 		<!-- Bottom Fixed Action Bar -->
-		<view class="bottom-actions-bar" v-if="!notFound">
+		<view class="bottom-actions-bar" v-if="!notFound && orderEnabled">
 			<view class="btn-steal-full" :class="{ disabled: addingToCart }" @tap="addToCart">
 				<image class="action-icon" src="/static/cart.svg" mode="aspectFit"></image>
 				<text>{{ addingToCart ? '正在添加...' : '添加到购物车' }}</text>
@@ -170,6 +170,7 @@
 	import { apiDishDetail, apiDishAdd } from '@/api/dish.js'
 	import { apiCategoryTree, apiCategoryAdd } from '@/api/category.js'
 	import { ensureLogin } from '@/utils/login.js'
+	import { refreshFeatureEnabled, isFeatureEnabledCached } from '@/utils/feature.js'
 
 	export default {
 		data() {
@@ -180,6 +181,8 @@
 				categoryMap: {},
 				stealing: false,
 				addingToCart: false,
+				// 点餐功能总开关：控制底部"添加到购物车"入口显隐（缓存值即时可用，onLoad 从后端刷新）
+				orderEnabled: isFeatureEnabledCached(),
 				categories: ['默认分类'],
 				// 菜品不存在（无 id 或加载失败）
 				notFound: false,
@@ -207,6 +210,7 @@
 		},
 		onLoad(options) {
 			this.loadCategories();
+			refreshFeatureEnabled().then(enabled => { this.orderEnabled = enabled; });
 			if (options && options.id && /^\d+$/.test(String(options.id))) {
 				this.loadDetail(options.id);
 			} else {

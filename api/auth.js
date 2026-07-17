@@ -1,4 +1,4 @@
-import { post, get } from '@/utils/request.js'
+import { post, get, put } from '@/utils/request.js'
 import config from '@/config/index.js'
 
 const P = config.apiPrefix
@@ -11,6 +11,11 @@ export function apiLogin(data) {
 // 获取当前登录用户信息
 export function apiUserInfo() {
 	return get(P + '/auth/info', {}, { silent: true })
+}
+
+// 修改当前小程序用户资料
+export function apiUpdateProfile(data) {
+	return put(P + '/auth/profile', data)
 }
 
 // 退出登录

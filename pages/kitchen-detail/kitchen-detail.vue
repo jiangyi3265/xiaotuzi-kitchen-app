@@ -71,7 +71,7 @@
 					<view class="card-info">
 						<text class="dish-title">{{ item.name }}</text>
 						<view class="card-bottom">
-							<view class="cart-action" :class="{ selected: item.cartCount > 0 }" @tap.stop="onCartIconTap(item)">
+							<view class="cart-action" v-if="orderEnabled" :class="{ selected: item.cartCount > 0 }" @tap.stop="onCartIconTap(item)">
 								<view v-if="item.cartCount > 0" class="select-checkmark"></view>
 								<text v-else>+</text>
 							</view>
@@ -86,6 +86,7 @@
 <script>
 	import { apiDishList } from '@/api/dish.js'
 	import { apiShopInfo } from '@/api/shop.js'
+	import { refreshFeatureEnabled, isFeatureEnabledCached } from '@/utils/feature.js'
 
 	export default {
 		data() {
@@ -94,7 +95,9 @@
 				selectedCategory: '全部',
 				// 分类与菜品由 loadKitchen 从后端填充；为空显示空状态
 				categories: ['全部'],
-				dishes: []
+				dishes: [],
+				// 点餐功能总开关：控制菜品卡"加入购物车"按钮显隐（缓存值即时可用，onLoad 从后端刷新）
+				orderEnabled: isFeatureEnabledCached()
 			}
 		},
 		computed: {
@@ -107,6 +110,7 @@
 		},
 		onLoad() {
 			this.loadKitchen();
+			refreshFeatureEnabled().then(enabled => { this.orderEnabled = enabled; });
 		},
 		onShow() {
 			this.syncCartState();

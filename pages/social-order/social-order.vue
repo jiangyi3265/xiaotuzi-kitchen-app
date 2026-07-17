@@ -10,13 +10,15 @@
 
 <script>
 	import CoupleOrderPanel from '@/components/couple-order-panel/couple-order-panel.vue'
+	import { guardFeatureOrRedirect } from '@/utils/feature.js'
 
 	export default {
 		components: { CoupleOrderPanel },
 		data() {
 			return { remote: false }
 		},
-		onLoad(options = {}) {
+		async onLoad(options = {}) {
+			if (await guardFeatureOrRedirect()) return
 			this.remote = String(options.remote || '') === '1'
 		},
 		onShow() {

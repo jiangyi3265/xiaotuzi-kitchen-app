@@ -247,6 +247,7 @@
 	import { ensureLogin } from '@/utils/login.js'
 	import { apiRegionStatus, apiRegionApply, apiOpenedRegions } from '@/api/region.js'
 	import config from '@/config/index.js'
+	import { guardFeatureOrRedirect } from '@/utils/feature.js'
 
 	export default {
 		data() {
@@ -317,7 +318,8 @@
 				return this.selectedService === '附近的菜市场' && this.marketMode === 'stockGroup';
 			}
 		},
-		onLoad(options = {}) {
+		async onLoad(options = {}) {
+			if (await guardFeatureOrRedirect()) return;
 			this.groupRoomId = /^\d+$/.test(String(options.groupRoomId || '')) ? Number(options.groupRoomId) : null;
 			this.coupleOrder = String(options.coupleOrder || '') === '1';
 			this.remoteFeed = String(options.remote || '') === '1';

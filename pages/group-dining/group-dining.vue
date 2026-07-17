@@ -172,6 +172,7 @@
 	import { apiCategoryTree } from '@/api/category.js'
 	import { ensureLogin } from '@/utils/login.js'
 	import { getUserInfo } from '@/utils/auth.js'
+	import { guardFeatureOrRedirect } from '@/utils/feature.js'
 
 	export default {
 		props: {
@@ -215,7 +216,8 @@
 		beforeDestroy() {
 			uni.$off('group-order-submitted', this.handleGroupOrderSubmitted)
 		},
-		onLoad(options = {}) {
+		async onLoad(options = {}) {
+			if (await guardFeatureOrRedirect()) return;
 			this.initialize(options)
 		},
 		async onShow() {
