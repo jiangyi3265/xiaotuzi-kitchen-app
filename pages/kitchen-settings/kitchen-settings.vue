@@ -2,7 +2,7 @@
 	<view class="page-container">
 		<!-- Top Header Area (Banner + Profile Card) -->
 		<view class="header-banner-section">
-			<image class="banner-bg" :src="bannerImg || '/static/kitchen_banner.png'" mode="aspectFill"></image>
+			<image class="banner-bg" :src="assetUrl(bannerImg, '/static/kitchen_banner.png')" mode="aspectFill"></image>
 			<view class="banner-mask"></view>
 			
 			<view class="status-bar"></view>
@@ -14,7 +14,7 @@
 			
 			<!-- Profile Card Overlay -->
 			<view class="profile-card">
-				<image class="kitchen-avatar" :src="avatarImg || '/static/kitchen_avatar.png'" mode="aspectFill"></image>
+				<image class="kitchen-avatar" :src="assetUrl(avatarImg, '/static/kitchen_avatar.png')" mode="aspectFill"></image>
 				<view class="kitchen-info">
 					<text class="kitchen-title">{{ kitchenName || '我的厨房' }}</text>
 					<text class="kitchen-subtitle">{{ subtitle || '世间万物，唯有美食不可辜负' }}</text>
@@ -43,7 +43,7 @@
 				<view class="form-group">
 					<text class="form-group-title">背景图</text>
 					<view class="banner-upload-box" @tap="onUploadBanner">
-						<image class="upload-img-preview" :src="bannerImg || '/static/kitchen_banner.png'" mode="aspectFill"></image>
+						<image class="upload-img-preview" :src="assetUrl(bannerImg, '/static/kitchen_banner.png')" mode="aspectFill"></image>
 						<view class="upload-overlay-mask">
 							<text class="overlay-text">点击更换</text>
 						</view>
@@ -53,7 +53,7 @@
 				<view class="form-group">
 					<text class="form-group-title">头像</text>
 					<view class="avatar-upload-box" @tap="onUploadAvatar">
-						<image class="upload-avatar-preview" :src="avatarImg || '/static/kitchen_avatar.png'" mode="aspectFill"></image>
+						<image class="upload-avatar-preview" :src="assetUrl(avatarImg, '/static/kitchen_avatar.png')" mode="aspectFill"></image>
 						<view class="upload-overlay-mask">
 							<text class="overlay-text">点击更换</text>
 						</view>
@@ -76,7 +76,7 @@
 				<view class="form-group">
 					<text class="form-group-title">邀请封面</text>
 					<view class="banner-upload-box" @tap="onUploadCover">
-						<image class="upload-img-preview" :src="inviteCoverImg || '/static/kitchen_banner.png'" mode="aspectFill"></image>
+						<image class="upload-img-preview" :src="assetUrl(inviteCoverImg, '/static/kitchen_banner.png')" mode="aspectFill"></image>
 						<view class="upload-overlay-mask">
 							<text class="overlay-text">点击更换</text>
 						</view>
@@ -108,7 +108,7 @@
 						<text class="qr-title">微信(小绿)</text>
 						<text class="qr-subtitle">上传清晰的微信收款二维码</text>
 						<view class="qr-dotted-box" @tap="onUploadWechatQR">
-							<image class="qr-preview" v-if="wechatQr" :src="wechatQr" mode="aspectFill"></image>
+							<image class="qr-preview" v-if="wechatQr" :src="assetUrl(wechatQr)" mode="aspectFill"></image>
 							<view class="qr-box-content" v-else>
 								<text class="qr-box-text">点击上传</text>
 							</view>
@@ -119,7 +119,7 @@
 						<text class="qr-title">支付宝(小蓝)</text>
 						<text class="qr-subtitle">上传清晰的支付宝收款二维码</text>
 						<view class="qr-dotted-box" @tap="onUploadAlipayQR">
-							<image class="qr-preview" v-if="alipayQr" :src="alipayQr" mode="aspectFill"></image>
+							<image class="qr-preview" v-if="alipayQr" :src="assetUrl(alipayQr)" mode="aspectFill"></image>
 							<view class="qr-box-content" v-else>
 								<text class="qr-box-text">点击上传</text>
 							</view>
@@ -228,8 +228,8 @@
 
 		<!-- Bottom Solid Action Button -->
 		<view class="bottom-action-wrapper">
-			<view class="btn-save-settings" @tap="saveAllSettings">
-				<text>保存修改</text>
+			<view class="btn-save-settings" :class="{ disabled: saving }" @tap="saveAllSettings">
+				<text>{{ saving ? '正在保存...' : '保存修改' }}</text>
 			</view>
 		</view>
 	</view>
@@ -237,14 +237,17 @@
 
 <script>
 	import { apiShopInfo, apiShopSave } from '@/api/shop.js'
+	import { apiUserInfo } from '@/api/auth.js'
 	import { ensureLogin } from '@/utils/login.js'
 	import { uploadFile } from '@/utils/request.js'
+	import config from '@/config/index.js'
 
 	export default {
 		data() {
 			return {
 				tabs: ['基础信息', '邀请下单', '收款码', '展示', '隐私', '公告'],
 				activeTab: 0,
+				saving: false,
 
 				// 厨房设置（对接后端 kitchen_shop）
 				bannerImg: '',
@@ -282,7 +285,7 @@
 				].join('\n')
 			}
 		},
-		onLoad(options) {
+		async onLoad(options) {
 			// Load settings from storage
 			this.kitchenName = uni.getStorageSync('kitchenName') || '我的厨房';
 			this.inviteText = uni.getStorageSync('inviteText') || '美味已就位,快来点餐吧~';
@@ -302,10 +305,51 @@
 			}
 			this.announceEnabled = uni.getStorageSync('announcementEnabled') !== false;
 
-			// 从后端加载厨房设置（覆盖本地）
-			this.loadShop();
+			// 厨房资料是全局配置，只允许店主进入和保存。
+			try {
+				await ensureLogin();
+				const profileRes = await apiUserInfo();
+				const user = profileRes && profileRes.data;
+				if (!user || String(user.isOwner || '0') !== '1') {
+					uni.showModal({
+						title: '需要店主权限',
+						content: '请在后台“小程序用户 → 修改”中，将当前账号的“是否店主”设为“是”。',
+						showCancel: false,
+						complete: () => uni.navigateBack()
+					});
+					return;
+				}
+				// 从后端加载厨房设置（覆盖本地）
+				await this.loadShop();
+			} catch (e) {
+				uni.navigateBack();
+			}
 		},
 		methods: {
+			assetUrl(value, fallback = '') {
+				const url = String(value || '').trim();
+				if (!url) return fallback;
+				if (/^(https?:|data:|blob:|wxfile:)/i.test(url) || url.startsWith('/static/')) return url;
+				return config.baseUrl.replace(/\/$/, '') + '/' + url.replace(/^\//, '');
+			},
+			applyShop(shop) {
+				if (!shop) return;
+				this.kitchenName = shop.shopName || '我的厨房';
+				this.inviteText = shop.inviteText || '美味已就位,快来点餐吧~';
+				this.subtitle = shop.subtitle || '';
+				this.bannerImg = shop.banner || '';
+				this.avatarImg = shop.avatar || '';
+				this.inviteCoverImg = shop.inviteCover || '';
+				this.wechatQr = shop.wechatQr || '';
+				this.alipayQr = shop.alipayQr || '';
+				this.storeName = shop.storeName || '';
+				this.storeAddress = shop.storeAddress || '';
+				this.businessHours = shop.businessHours || '';
+				this.storePhone = shop.storePhone || '';
+				this.announceEnabled = shop.announceEnabled !== '0';
+				this.announceTitle = shop.announceTitle || this.announceTitle;
+				this.announceContent = shop.announceContent || this.announceContent;
+			},
 			onBackTap() {
 				uni.navigateBack();
 			},
@@ -313,24 +357,11 @@
 				try {
 					const res = await apiShopInfo();
 					const shop = res && res.data;
-					if (!shop) return;
-					if (shop.shopName) this.kitchenName = shop.shopName;
-					if (shop.inviteText) this.inviteText = shop.inviteText;
-					this.subtitle = shop.subtitle || '';
-					this.bannerImg = shop.banner || '';
-					this.avatarImg = shop.avatar || '';
-					this.inviteCoverImg = shop.inviteCover || '';
-					this.wechatQr = shop.wechatQr || '';
-					this.alipayQr = shop.alipayQr || '';
-					this.storeName = shop.storeName || '';
-					this.storeAddress = shop.storeAddress || '';
-					this.businessHours = shop.businessHours || '';
-					this.storePhone = shop.storePhone || '';
-					// 公告以后端为准
-					this.announceEnabled = shop.announceEnabled !== '0';
-					if (shop.announceTitle) this.announceTitle = shop.announceTitle;
-					if (shop.announceContent) this.announceContent = shop.announceContent;
-				} catch (e) {}
+					this.applyShop(shop);
+					return shop;
+				} catch (e) {
+					throw e;
+				}
 			},
 			// 通用图片选择+上传，回填到指定字段
 			chooseAndUpload(field) {
@@ -416,11 +447,24 @@
 				});
 			},
 			async saveAllSettings() {
-				// 保存到后端（厨房名/邀请文案/图片/收款码等 kitchen_shop 字段）
+				if (this.saving) return;
+				if (!String(this.kitchenName || '').trim()) {
+					uni.showToast({ title: '请填写厨房名称', icon: 'none' });
+					return;
+				}
+				this.saving = true;
+				uni.showLoading({ title: '正在保存', mask: true });
+
+				// 保存到后端并立即回读，只有服务器确认成功才显示“保存成功”。
 				try {
 					await ensureLogin();
+					const profileRes = await apiUserInfo();
+					const user = profileRes && profileRes.data;
+					if (!user || String(user.isOwner || '0') !== '1') {
+						throw { code: 403, msg: '无权操作，仅店主可管理' };
+					}
 					await apiShopSave({
-						shopName: this.kitchenName,
+						shopName: this.kitchenName.trim(),
 						inviteText: this.inviteText,
 						subtitle: this.subtitle,
 						banner: this.bannerImg,
@@ -436,8 +480,18 @@
 						announceTitle: this.announceTitle,
 						announceContent: this.announceContent
 					});
+					await this.loadShop();
 				} catch (e) {
-					// 后端保存失败也继续保存本地展示类设置
+					uni.hideLoading();
+					this.saving = false;
+					if (Number(e && e.code) === 403) {
+						uni.showModal({
+							title: '保存失败',
+							content: '当前账号不是店主，请先在后台“小程序用户 → 修改”中把“是否店主”设为“是”。',
+							showCancel: false
+						});
+					}
+					return;
 				}
 
 				// Persist all settings（展示/隐私/公告为本地设置）
@@ -461,8 +515,10 @@
 				});
 				uni.setStorageSync('announcementEnabled', this.announceEnabled);
 
+				uni.hideLoading();
+				this.saving = false;
 				uni.showToast({
-					title: '保存成功！',
+					title: '已保存并同步',
 					icon: 'success',
 					duration: 1000
 				});
@@ -927,5 +983,9 @@
 		font-size: 32rpx;
 		font-weight: bold;
 		box-shadow: 0 8rpx 20rpx rgba(16, 185, 129, 0.25);
+	}
+
+	.btn-save-settings.disabled {
+		opacity: 0.58;
 	}
 </style>

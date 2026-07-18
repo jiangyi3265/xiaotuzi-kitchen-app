@@ -1201,34 +1201,47 @@
 				}
 			},
 			buildBrowseTree(cats, dishes) {
+				const categoryKey = value => String(value == null ? '' : value);
+				const formatDish = d => ({
+					id: d.id,
+					name: d.dishName,
+					desc: d.story || (d.categoryName ? '· ' + d.categoryName : ''),
+					image: d.cover || '/static/onion_chicken.png',
+					sales: d.sales || 0,
+					price: d.virtualPrice || 0,
+					todayType: d.todayType || '',
+					ingredients: d.ingredients || ''
+				});
 				const dishMap = {};
 				dishes.forEach(d => {
-					const cid = d.categoryId;
+					const cid = categoryKey(d.categoryId);
 					if (!dishMap[cid]) dishMap[cid] = [];
-					dishMap[cid].push({
-						id: d.id,
-						name: d.dishName,
-						desc: d.story || (d.categoryName ? '· ' + d.categoryName : ''),
-						image: d.cover || '/static/onion_chicken.png',
-						sales: d.sales || 0,
-						price: d.virtualPrice || 0,
-						todayType: d.todayType || '',
-						ingredients: d.ingredients || ''
-					});
+					dishMap[cid].push(formatDish(d));
 				});
+				const knownCategoryIds = new Set();
+				const collectCategoryIds = nodes => {
+					(nodes || []).forEach(node => {
+						knownCategoryIds.add(categoryKey(node.id));
+						collectCategoryIds(node.children);
+					});
+				};
+				collectCategoryIds(cats);
 				const collectDishes = (node) => {
-					let arr = (dishMap[node.id] || []).slice();
+					let arr = (dishMap[categoryKey(node.id)] || []).slice();
 					(node.children || []).forEach(c => { arr = arr.concat(collectDishes(c)); });
 					return arr;
 				};
-				return (cats || []).map(l1 => {
+				const tree = (cats || []).map(l1 => {
 					let children = (l1.children || []).map(l2 => ({
 						id: l2.id,
 						name: l2.catName,
 						dishes: collectDishes(l2)
 					}));
+					const directDishes = dishMap[categoryKey(l1.id)] || [];
 					if (!children.length) {
-						children = [{ id: l1.id, name: l1.catName, dishes: dishMap[l1.id] || [] }];
+						children = [{ id: l1.id, name: l1.catName, dishes: directDishes }];
+					} else if (directDishes.length) {
+						children.push({ id: `direct-${l1.id}`, name: '其他菜谱', dishes: directDishes });
 					}
 					return {
 						id: l1.id,
@@ -1237,6 +1250,18 @@
 						children
 					};
 				});
+				const unmatchedDishes = (dishes || [])
+					.filter(d => !knownCategoryIds.has(categoryKey(d.categoryId)))
+					.map(formatDish);
+				if (unmatchedDishes.length) {
+					tree.push({
+						id: 'unmatched-recipes',
+						name: '其他菜谱',
+						image: unmatchedDishes[0].image,
+						children: [{ id: 'unmatched-recipes-all', name: '全部', dishes: unmatchedDishes }]
+					});
+				}
+				return tree;
 			},
 			async loadShareSquare() {
 				try {
@@ -1264,7 +1289,7 @@
 					const shop = res && res.data;
 					if (!shop) return;
 					this.shopInfo = shop;
-					if (shop.shopName && !uni.getStorageSync('kitchenName')) {
+					if (shop.shopName) {
 						this.kitchenName = shop.shopName;
 					}
 					// 公告：内容来自后端 shop.announceEnabled/announceTitle/announceContent
@@ -1561,10 +1586,21 @@
 					this.tutorialStep = 0;
 				}
 			},
-			onSettingsTap() {
+			async onSettingsTap() {
 				if (this.tutorialStep > 0) return;
-				if (!getToken()) {
-					ensureLogin().catch(() => {});
+				try {
+					await ensureLogin();
+					await this.loadUserProfile();
+				} catch (e) {
+					return;
+				}
+				if (!this.isKitchenOwner) {
+					uni.showModal({
+						title: '需要店主权限',
+						content: '厨房资料属于全局配置。请先在后台“小程序用户 → 修改”中，将当前账号的“是否店主”设为“是”。',
+						showCancel: false,
+						confirmText: '我知道了'
+					});
 					return;
 				}
 				uni.navigateTo({
